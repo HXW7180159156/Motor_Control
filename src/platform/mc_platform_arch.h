@@ -1,0 +1,15 @@
+#ifndef MC_PLATFORM_ARCH_H
+#define MC_PLATFORM_ARCH_H
+
+#define MC_ARCH_CORTEX_M0P (1U)
+#define MC_ARCH_CORTEX_M4F (2U)
+#define MC_ARCH_CORTEX_M7  (3U)
+#define MC_ARCH_CORTEX_M33 (4U)
+#define MC_ARCH_CORTEX_R5F (5U)
+#define MC_ARCH_CORTEX_R52 (6U)
+
+#ifndef MC_CFG_TARGET_ARCH
+#define MC_CFG_TARGET_ARCH MC_ARCH_CORTEX_M4F
+#endif
+
+#endif /* MC_PLATFORM_ARCH_H */
