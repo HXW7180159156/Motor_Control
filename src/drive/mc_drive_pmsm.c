@@ -8,7 +8,6 @@
  * @brief Limit the voltage vector magnitude to the configured voltage limit
  * @param foc Pointer to the PMSM FOC drive structure
  * @param v_dq Voltage vector in dq-frame to limit (modified in place)
- * @return void
  */
 static void mc_pmsm_limit_voltage(mc_pmsm_foc_t *foc, mc_dq_t *v_dq)
 {
@@ -40,7 +39,6 @@ static void mc_pmsm_limit_voltage(mc_pmsm_foc_t *foc, mc_dq_t *v_dq)
  * @param foc Pointer to the PMSM FOC drive structure
  * @param in Pointer to the FOC input structure containing bus voltage
  * @param v_ab Voltage vector in alpha-beta frame to normalize (modified in place)
- * @return void
  */
 static void mc_pmsm_normalize_voltage(const mc_pmsm_foc_t *foc,
                                       const mc_pmsm_foc_input_t *in,
@@ -72,7 +70,6 @@ static void mc_pmsm_normalize_voltage(const mc_pmsm_foc_t *foc,
  * @param in Pointer to the FOC input structure
  * @param i_abc Output predicted three-phase currents
  * @param comp_status Output compensation status information
- * @return void
  */
 static void mc_pmsm_predict_1shunt_current(const mc_pmsm_foc_t *foc,
                                            const mc_pmsm_foc_input_t *in,
@@ -161,7 +158,6 @@ static void mc_pmsm_predict_1shunt_current(const mc_pmsm_foc_t *foc,
  * @param in Pointer to the FOC input structure containing raw current measurements
  * @param i_abc Output reconstructed three-phase currents
  * @param comp_status Output compensation status for single-shunt prediction
- * @return void
  */
 static void mc_pmsm_reconstruct_current(const mc_pmsm_foc_t *foc,
                                         const mc_pmsm_foc_input_t *in,
@@ -198,7 +194,6 @@ static void mc_pmsm_reconstruct_current(const mc_pmsm_foc_t *foc,
  * @brief Optimize PWM pattern for single-shunt current sensing
  * @param foc Pointer to the PMSM FOC drive structure
  * @param pwm_cmd PWM command to optimize (modified in place)
- * @return void
  */
 static void mc_pmsm_optimize_1shunt_pwm(mc_pmsm_foc_t *foc, mc_pwm_cmd_t *pwm_cmd)
 {
@@ -240,7 +235,6 @@ static void mc_pmsm_optimize_1shunt_pwm(mc_pmsm_foc_t *foc, mc_pwm_cmd_t *pwm_cm
  * @param foc Pointer to the PMSM FOC drive structure
  * @param meta Pointer to the single-shunt metadata
  * @param trigger_plan Output ADC trigger plan structure
- * @return void
  */
 static void mc_pmsm_plan_1shunt_adc_trigger(const mc_pmsm_foc_t *foc,
                                             const mc_1shunt_meta_t *meta,
@@ -320,7 +314,6 @@ static void mc_pmsm_plan_1shunt_adc_trigger(const mc_pmsm_foc_t *foc,
  * @param foc Pointer to the PMSM FOC drive structure
  * @param voltage_ab Voltage vector in alpha-beta frame for preview
  * @param pwm_cmd PWM command to preview and configure (modified in place)
- * @return void
  */
 static void mc_pmsm_plan_1shunt_from_voltage(mc_pmsm_foc_t *foc,
                                              const mc_alphabeta_t *voltage_ab,
@@ -371,7 +364,7 @@ mc_f32_t mc_pmsm_compute_mtpa_id(mc_f32_t iq_ref, mc_f32_t flux_wb, mc_f32_t ld_
 }
 
 /**
- * @brief Initialize a PMSM FOC drive instance
+ * @brief Initialise a PMSM FOC drive instance
  * @param foc Pointer to the PMSM FOC drive structure
  * @param cfg Pointer to the FOC configuration structure
  * @return MC_STATUS_OK on success, MC_STATUS_INVALID_ARG if pointers are NULL

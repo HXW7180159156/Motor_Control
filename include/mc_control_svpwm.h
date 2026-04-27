@@ -15,17 +15,35 @@ typedef struct
 
 /**
  * @brief Run SVPWM modulation to generate 3-phase PWM commands
- * @param voltage_ab  Alpha-beta voltage vector
- * @param cfg         SVPWM configuration
- * @param pwm_cmd     Output PWM command (3-phase duty cycles)
+ * @param[in] voltage_ab Alpha-beta voltage vector.
+ *   Range: non-NULL pointer to readable `mc_alphabeta_t`; finite components are recommended.
+ * @param[in] cfg SVPWM configuration.
+ *   Range: non-NULL pointer to readable `mc_svpwm_cfg_t`; intended `duty_min <= duty_max` and `modulation_limit >= 0.0F`.
+ * @param[in,out] pwm_cmd Output PWM command (3-phase duty cycles).
+ *   Range: non-NULL pointer to writable `mc_pwm_cmd_t` storage.
+ * @return None.
+ *   Range: not applicable.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when concurrent calls do not share writable `pwm_cmd` storage.
  */
 void mc_svpwm_run(const mc_alphabeta_t *voltage_ab, const mc_svpwm_cfg_t *cfg, mc_pwm_cmd_t *pwm_cmd);
 
 /**
  * @brief Run SVPWM from a Q31 alpha-beta vector
- * @param voltage_ab_q31 Alpha-beta voltage vector in Q31
- * @param cfg SVPWM configuration
- * @param pwm_cmd Output PWM command
+ * @param[in] voltage_ab_q31 Alpha-beta voltage vector in Q31.
+ *   Range: non-NULL pointer to readable `mc_alphabeta_q31_t` storage.
+ * @param[in] cfg SVPWM configuration.
+ *   Range: non-NULL pointer to readable `mc_svpwm_cfg_t`; intended `duty_min <= duty_max` and `modulation_limit >= 0.0F`.
+ * @param[in,out] pwm_cmd Output PWM command.
+ *   Range: non-NULL pointer to writable `mc_pwm_cmd_t` storage.
+ * @return None.
+ *   Range: not applicable.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when concurrent calls do not share writable `pwm_cmd` storage.
  */
 void mc_svpwm_q31_run(const mc_alphabeta_q31_t *voltage_ab_q31, const mc_svpwm_cfg_t *cfg, mc_pwm_cmd_t *pwm_cmd);
 

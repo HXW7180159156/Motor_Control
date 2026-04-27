@@ -13,7 +13,7 @@
 #define MC_SENSORLESS_PLL_LOCK_ANGLE_ERR_RAD (0.35F)
 
 /**
- * @brief Initialize sensorless observer state with configuration
+ * @brief Initialise sensorless observer state with configuration
  * @param state [out] Sensorless observer state structure
  * @param cfg Sensorless observer configuration parameters
  * @return MC_STATUS_OK on success, MC_STATUS_INVALID_ARG on invalid input

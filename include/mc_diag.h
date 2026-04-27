@@ -26,8 +26,14 @@ typedef struct
 
 /**
  * @brief Returns the human-readable name of a 1-shunt compensation mode.
- * @param mode The 1-shunt compensation mode enumerator.
- * @return Pointer to a null-terminated string describing the mode.
+ * @param[in] mode The 1-shunt compensation mode enumerator.
+ *   Range: any `mc_1shunt_comp_mode_t` value.
+ * @return Pointer to a null-terminated constant string describing the mode.
+ *   Range: one of `"none"`, `"predict_basic"`, `"predict_high_modulation"`, `"predict_field_weakening"`, or `"unknown"` for unrecognized values.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant.
  */
 const char *mc_diag_1shunt_comp_mode_name(mc_1shunt_comp_mode_t mode);
 

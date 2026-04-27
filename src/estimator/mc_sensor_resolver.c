@@ -6,7 +6,7 @@
 #include <math.h>
 
 /**
- * @brief Initialize resolver state with configuration
+ * @brief Initialise resolver state with configuration
  * @param state [out] Resolver state structure
  * @param cfg Resolver configuration parameters
  * @return MC_STATUS_OK on success, MC_STATUS_INVALID_ARG on invalid input

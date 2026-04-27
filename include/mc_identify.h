@@ -47,7 +47,7 @@ typedef struct
  * - `current_ab` is expected to be reconstructed and scaled in amperes before entering `mc_identify_run()`.
  * - `align_voltage`, `rs_voltage`, and `pulse_voltage` are normalized command ratios multiplied by `voltage_limit`.
  * - `Ld`, `Lq`, and final `flux_wb` windows use time-weighted averaging over the actual discrete injected duration observed by the state machine.
- * - `flux_wb` uses an open-loop q-axis voltage balance estimate and may keep its seeded value when no valid flux samples are collected.
+ * - `flux_wb` uses an open-loop q-axis voltage balance estimate, only accumulates samples aligned with the applied q-axis excitation direction, and may keep its seeded value when no valid flux samples are collected.
  * - Raw measured `Rs`, `Ld`, `Lq`, and flux candidates are tracked internally before trust gates promote them to the public result fields.
  * - Internal candidate fields are not part of the public identify result contract and are never returned by `mc_identify_get_result()`.
  * - Non-physical `Rs`, `Ld`, and `Lq` estimates are rejected and reported as `0.0F`.
@@ -100,52 +100,105 @@ typedef struct
 } mc_identify_t;
 
 /**
- * @brief Initialize the motor parameter identifier.
- * @param id Pointer to the identifier state structure.
- * @param cfg Pointer to the identification configuration.
+ * @brief Initialise the motor-parameter identifier
+ * @param[out] id Pointer to identifier state storage.
+ *   Range: writable `mc_identify_t` storage or `NULL`.
+ * @param[in] cfg Identification configuration to copy.
+ *   Range: readable `mc_identify_cfg_t` storage or `NULL`.
+ * @return None.
+ *   Range: not applicable.
+ * @note If `id == NULL` or `cfg == NULL`, the call has no effect.
+ * @note Non-positive timing, voltage-ratio, `max_current_a`, and `voltage_limit`
+ *       fields are replaced with internal defaults during initialization.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `id` object.
  */
 void mc_identify_init(mc_identify_t *id, const mc_identify_cfg_t *cfg);
 
 /**
- * @brief Start the identification process.
- * @param id Pointer to the identifier state structure.
+ * @brief Start the identification sequence from the ALIGN state
+ * @param[in,out] id Pointer to identifier state storage.
+ *   Range: writable `mc_identify_t` storage or `NULL`.
+ * @return None.
+ *   Range: not applicable.
+ * @note If `id == NULL`, the call has no effect.
+ * @par Sync/Async
+ *   Synchronous start. Completion occurs across later `mc_identify_run()` calls.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `id` object. Not reentrant for concurrent writes to the same `id`.
  */
 void mc_identify_start(mc_identify_t *id);
 
 /**
- * @brief Check if the identification process has completed.
- * @param id Pointer to the identifier state structure.
- * @return True if identification is complete, false otherwise.
+ * @brief Check whether the identification sequence has completed
+ * @param[in] id Pointer to identifier state storage.
+ *   Range: readable `mc_identify_t` storage or `NULL`.
+ * @return Completion flag.
+ *   Range: `MC_TRUE` when `id != NULL` and `id->state == MC_IDENTIFY_STATE_COMPLETE`; otherwise `MC_FALSE`.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant for concurrent read-only calls.
  */
 mc_bool_t mc_identify_is_done(const mc_identify_t *id);
 
 /**
- * @brief Check if the identification process is currently active.
- * @param id Pointer to the identifier state structure.
- * @return True if identification is running, false otherwise.
+ * @brief Check whether the identification sequence is actively running
+ * @param[in] id Pointer to identifier state storage.
+ *   Range: readable `mc_identify_t` storage or `NULL`.
+ * @return Activity flag.
+ *   Range: `MC_TRUE` when `id != NULL` and the state is neither `IDLE`, `COMPLETE`, nor `ERROR`; otherwise `MC_FALSE`.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant for concurrent read-only calls.
  */
 mc_bool_t mc_identify_is_active(const mc_identify_t *id);
 
 /**
- * @brief Run one cycle of the identification state machine.
- * @param id Pointer to the identifier state structure.
- * @param in Input measurement data for this cycle.
- * @param out Output command data for this cycle.
- * @return MC_STATUS_OK on success, or an error code.
+ * @brief Execute one identification state-machine cycle
+ * @param[in,out] id Pointer to identifier state storage.
+ *   Range: non-NULL pointer to writable `mc_identify_t` storage.
+ * @param[in] in Per-cycle measurement input.
+ *   Range: non-NULL pointer to readable `mc_identify_input_t` storage with `dt_s > 0.0F`.
+ * @param[out] out Per-cycle PWM and ADC command output.
+ *   Range: non-NULL pointer to writable `mc_identify_output_t` storage.
+ * @retval MC_STATUS_OK Cycle completed successfully.
+ * @retval MC_STATUS_INVALID_ARG `id == NULL`, `in == NULL`, `out == NULL`, or `in->dt_s <= 0.0F`.
+ * @note If the identifier is `IDLE`, `COMPLETE`, or `ERROR`, this call returns `MC_STATUS_OK` after zeroing `*out`.
+ * @note If either measured alpha/beta current magnitude exceeds `cfg.max_current_a`, the identifier transitions to `MC_IDENTIFY_STATE_ERROR`, zeroes its outputs, and still returns `MC_STATUS_OK`.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `id` object and different writable `out` storage. Not reentrant for concurrent writes to the same `id`.
  */
 mc_status_t mc_identify_run(mc_identify_t *id, const mc_identify_input_t *in, mc_identify_output_t *out);
 
 /**
- * @brief Get the identification results.
- * @param id Pointer to the identifier state structure.
- * @param rs_ohm Output pointer for stator resistance [Ohm].
- * @param ld_h Output pointer for D-axis inductance [H].
- * @param lq_h Output pointer for Q-axis inductance [H].
- * @param flux_wb Output pointer for motor flux [Wb].
+ * @brief Get the current trusted identification results
+ * @param[in] id Pointer to identifier state storage.
+ *   Range: readable `mc_identify_t` storage or `NULL`.
+ * @param[out] rs_ohm Output stator-resistance pointer [Ohm].
+ *   Range: writable `mc_f32_t` storage or `NULL`.
+ * @param[out] ld_h Output d-axis inductance pointer [H].
+ *   Range: writable `mc_f32_t` storage or `NULL`.
+ * @param[out] lq_h Output q-axis inductance pointer [H].
+ *   Range: writable `mc_f32_t` storage or `NULL`.
+ * @param[out] flux_wb Output flux-linkage pointer [Wb].
+ *   Range: writable `mc_f32_t` storage or `NULL`.
  * @note `rs_ohm`, `ld_h`, and `lq_h` return `0.0F` when the corresponding estimate is invalid or non-physical.
  * @note `ld_h`, `lq_h`, and `flux_wb` reflect time-weighted windows over the actual discrete injected duration.
  * @note Raw measured candidates may remain internal-only when trust gates are not met; `rs_ohm`, `ld_h`, `lq_h`, and `flux_wb` still return only trusted values or seeded fallbacks.
- * @note `flux_wb` may remain at its seeded value when the flux estimation window produces no valid samples.
+ * @note `flux_wb` may remain at its seeded value when the flux estimation window produces no valid samples, including samples that oppose the applied q-axis excitation direction.
+ * @return None.
+ *   Range: not applicable.
+ * @note If `id == NULL`, the call has no effect. Each output pointer is optional and is skipped when `NULL`.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant for concurrent read-only calls when each call uses different writable output storage.
  */
 void mc_identify_get_result(const mc_identify_t *id, mc_f32_t *rs_ohm, mc_f32_t *ld_h, mc_f32_t *lq_h, mc_f32_t *flux_wb);
 

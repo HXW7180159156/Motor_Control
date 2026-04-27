@@ -133,31 +133,54 @@ typedef struct
 
 /**
  * @brief Initialise a PMSM FOC drive instance
- *
- * @param foc  Pointer to FOC instance to initialise
- * @param cfg  Pointer to configuration parameters (copied internally)
- * @return mc_status_t Status code indicating success or failure
+ * @param[out] foc Pointer to FOC instance storage.
+ *   Range: non-NULL pointer to writable `mc_pmsm_foc_t` storage.
+ * @param[in] cfg Configuration parameters copied into the instance.
+ *   Range: non-NULL pointer to readable `mc_pmsm_foc_cfg_t` storage.
+ * @retval MC_STATUS_OK Initialization completed successfully.
+ * @retval MC_STATUS_INVALID_ARG `foc == NULL` or `cfg == NULL`.
+ * @note This function copies the configuration and resets runtime state, but does not validate most numeric configuration ranges.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `foc` object.
  */
 mc_status_t mc_pmsm_foc_init(mc_pmsm_foc_t *foc, const mc_pmsm_foc_cfg_t *cfg);
 
 /**
- * @brief Execute one FOC control cycle
- *
- * @param foc  Pointer to initialised FOC instance
- * @param in   Pointer to input data for this cycle
- * @param out  Pointer to output data populated by this cycle
- * @return mc_status_t Status code indicating success or failure
+ * @brief Execute one PMSM FOC current-loop cycle
+ * @param[in,out] foc Pointer to initialized FOC instance.
+ *   Range: non-NULL pointer to writable `mc_pmsm_foc_t` storage.
+ * @param[in] in Per-cycle FOC inputs.
+ *   Range: non-NULL pointer to readable `mc_pmsm_foc_input_t` storage.
+ * @param[out] out Per-cycle FOC outputs.
+ *   Range: non-NULL pointer to writable `mc_pmsm_foc_output_t` storage.
+ * @retval MC_STATUS_OK Cycle completed successfully.
+ * @retval MC_STATUS_INVALID_ARG `foc == NULL`, `in == NULL`, or `out == NULL`.
+ * @note Current reconstruction behavior is selected by `foc->cfg.current_cfg.type`; the 1-shunt path also populates `out->adc_trigger_plan` and `out->current_comp_status`.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `foc` object and different writable `out` storage. Not reentrant for concurrent writes to the same `foc`.
  */
 mc_status_t mc_pmsm_foc_run(mc_pmsm_foc_t *foc, const mc_pmsm_foc_input_t *in, mc_pmsm_foc_output_t *out);
 
 /**
- * @brief Compute d-axis current reference for maximum torque per ampere
- *
- * @param iq_ref  q-axis current reference (A)
- * @param flux_wb Permanent magnet flux linkage (Wb)
- * @param ld_h    d-axis inductance (H)
- * @param lq_h    q-axis inductance (H)
- * @return mc_f32_t Optimal d-axis current for MTPA (A)
+ * @brief Compute the MTPA d-axis current reference
+ * @param[in] iq_ref Q-axis current reference [A].
+ *   Range: application-defined `mc_f32_t`.
+ * @param[in] flux_wb Permanent-magnet flux linkage [Wb].
+ *   Range: application-defined `mc_f32_t`.
+ * @param[in] ld_h D-axis inductance [H].
+ *   Range: application-defined `mc_f32_t`.
+ * @param[in] lq_h Q-axis inductance [H].
+ *   Range: application-defined `mc_f32_t`.
+ * @return Computed MTPA d-axis current reference [A].
+ *   Range: application-defined `mc_f32_t`; returns `0.0F` when `lq_h - ld_h` is effectively zero or the internal discriminant is negative.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant.
  */
 mc_f32_t mc_pmsm_compute_mtpa_id(mc_f32_t iq_ref, mc_f32_t flux_wb, mc_f32_t ld_h, mc_f32_t lq_h);
 

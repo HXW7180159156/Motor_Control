@@ -30,6 +30,13 @@ mc_f32_t mc_math_clamp_f32(mc_f32_t value, mc_f32_t min_value, mc_f32_t max_valu
     return result;
 }
 
+/**
+ * @brief Clamp a Q31 value between minimum and maximum bounds
+ * @param value Input Q31 value to clamp
+ * @param min_value Lower bound
+ * @param max_value Upper bound
+ * @return Clamped Q31 value within [min_value, max_value]
+ */
 mc_q31_t mc_math_clamp_q31(mc_q31_t value, mc_q31_t min_value, mc_q31_t max_value)
 {
     mc_q31_t result = value;
@@ -46,6 +53,11 @@ mc_q31_t mc_math_clamp_q31(mc_q31_t value, mc_q31_t min_value, mc_q31_t max_valu
     return result;
 }
 
+/**
+ * @brief Convert a float to Q31 with saturation to the normalized range
+ * @param value Input float value
+ * @return Q31 representation saturated to [-1.0F, 1.0F]
+ */
 mc_q31_t mc_q31_from_f32(mc_f32_t value)
 {
     mc_f32_t clamped = mc_math_clamp_f32(value, -1.0F, 1.0F);
@@ -58,11 +70,22 @@ mc_q31_t mc_q31_from_f32(mc_f32_t value)
     return (mc_q31_t)(clamped * 2147483648.0F);
 }
 
+/**
+ * @brief Convert a Q31 value to float
+ * @param value Input Q31 value
+ * @return Float representation of the Q31 input
+ */
 mc_f32_t mc_q31_to_f32(mc_q31_t value)
 {
     return ((mc_f32_t)value) / 2147483648.0F;
 }
 
+/**
+ * @brief Add two Q31 values with saturation
+ * @param a First Q31 operand
+ * @param b Second Q31 operand
+ * @return Saturated Q31 sum
+ */
 mc_q31_t mc_q31_add_sat(mc_q31_t a, mc_q31_t b)
 {
     int64_t sum = (int64_t)a + (int64_t)b;
@@ -80,6 +103,12 @@ mc_q31_t mc_q31_add_sat(mc_q31_t a, mc_q31_t b)
     return (mc_q31_t)sum;
 }
 
+/**
+ * @brief Multiply two Q31 values with saturation
+ * @param a First Q31 operand
+ * @param b Second Q31 operand
+ * @return Saturated Q31 product
+ */
 mc_q31_t mc_q31_mul(mc_q31_t a, mc_q31_t b)
 {
     int64_t product = ((int64_t)a * (int64_t)b) >> 31;

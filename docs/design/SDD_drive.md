@@ -7,10 +7,24 @@
 - 六步换相，基于 Hall 输入驱动 PWM 输出
 - 数据结构：`mc_bldc_hall_t` 保存状态（换相表索引、死区计时器等）
 
+### BLDC Sensorless 驱动
+- 文件：`src/drive/mc_drive_bldc_sensorless.c` / `include/mc_drive_bldc_sensorless.h`
+- 启动相位：`IDLE -> ALIGN -> RAMP_OPEN -> RUN`
+- 顶层 `mc_start()` 会通过公开 API 调 `mc_bldc_sensorless_start()` 进入 `ALIGN`；`mc_stop()` / `mc_bldc_sensorless_reset()` 当前保留配置，仅清运行态
+- 闭环阶段基于悬空相反电势过零检测换相：
+  - `bemf_threshold_v` 作为最小有效过零幅值门限
+  - `zc_debounce_threshold` 可要求连续样本确认过零
+  - `advance_angle_deg` 按配置的提前角换算为过零后的延时换相
+- `mc_medium_step()` 可在 `RUN` 阶段调用 `mc_bldc_sensorless_speed_step()` 调整 `duty_cmd`
+
 ### PMSM FOC 驱动
 - 文件：`src/drive/mc_drive_pmsm.c` / `include/mc_drive_pmsm.h`
 - 支持 1-shunt / 2-shunt / 3-shunt 电流采样
 - FOC 状态：`mc_pmsm_foc_t` 包含 PI 状态、1-shunt 元数据、弱磁积分值
+- `1-shunt` 模式下，驱动层负责：
+  - 基于 `mc_1shunt_meta_t` 生成 PWM 共模偏移与相位重排
+  - 在窗口不足时使用简化 PMSM dq 模型做预测补偿
+  - 通过 `mc_1shunt_comp_status_t` 暴露 None / Basic / High Modulation / Field Weakening 模式
 
 ### 电流采样配置
 - `mc_current_sense_cfg_t`：三合一配置，通过 `type` + union 选择
@@ -29,10 +43,24 @@
 - Six-step commutation driven by Hall sensor input
 - Data structure: `mc_bldc_hall_t` holds state (commutation table index, dead-time counter, etc.)
 
+### BLDC Sensorless Drive
+- Files: `src/drive/mc_drive_bldc_sensorless.c` / `include/mc_drive_bldc_sensorless.h`
+- Startup phases: `IDLE -> ALIGN -> RAMP_OPEN -> RUN`
+- Top-level `mc_start()` enters `ALIGN` through the public `mc_bldc_sensorless_start()` path; `mc_stop()` / `mc_bldc_sensorless_reset()` currently preserve configuration while clearing runtime state
+- Closed-loop commutation is based on floating-phase back-EMF zero-cross detection:
+  - `bemf_threshold_v` is the minimum valid crossing amplitude
+  - `zc_debounce_threshold` can require consecutive samples before accepting a crossing
+  - `advance_angle_deg` is converted into the post-zero-cross commutation delay
+- `mc_medium_step()` can call `mc_bldc_sensorless_speed_step()` in `RUN` to adjust `duty_cmd`
+
 ### PMSM FOC Drive
 - Files: `src/drive/mc_drive_pmsm.c` / `include/mc_drive_pmsm.h`
 - Supports 1-shunt / 2-shunt / 3-shunt current sensing
 - FOC state: `mc_pmsm_foc_t` contains PI states, 1-shunt metadata, FW integral value
+- In `1-shunt` mode, the drive layer is responsible for:
+  - generating PWM common-mode shift and phase reordering from `mc_1shunt_meta_t`
+  - using a simplified PMSM dq model for predictive compensation when sampling windows are insufficient
+  - exposing None / Basic / High Modulation / Field Weakening through `mc_1shunt_comp_status_t`
 
 ### Current Sensing Configuration
 - `mc_current_sense_cfg_t`: unified configuration via `type` + union

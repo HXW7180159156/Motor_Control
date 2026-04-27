@@ -81,13 +81,24 @@ typedef struct
  * Analyses the PWM command and configuration to determine sampling windows,
  * phase edges, and compensation requirements.
  *
- * @param pwm_cmd Pointer to the PWM command structure
- * @param cfg     Pointer to the single-shunt configuration
- * @param meta    Pointer to the metadata structure to populate with the sampling plan
+ * @param[in] pwm_cmd Pointer to the PWM command structure.
+ *   Range: readable `mc_pwm_cmd_t` storage or `NULL`.
+ * @param[in] cfg Pointer to the single-shunt configuration.
+ *   Range: readable `mc_1shunt_cfg_t` storage or `NULL`.
+ * @param[out] meta Pointer to the metadata structure to populate with the sampling plan.
+ *   Range: writable `mc_1shunt_meta_t` storage or `NULL`.
+ * @return None.
+ *   Range: not applicable.
+ * @note If any pointer is `NULL`, the call has no effect.
+ * @note When `cfg->pwm_period_s <= 0.0F`, the planning logic uses an internal fallback period of `1.0F` second-equivalent units.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when concurrent calls do not share writable `meta` storage.
  */
 void mc_reconstruct_1shunt_plan(const mc_pwm_cmd_t *pwm_cmd,
-                                const mc_1shunt_cfg_t *cfg,
-                                mc_1shunt_meta_t *meta);
+                                 const mc_1shunt_cfg_t *cfg,
+                                 mc_1shunt_meta_t *meta);
 
 /**
  * @brief Reconstruct three-phase currents from single-shunt ADC samples
@@ -95,10 +106,22 @@ void mc_reconstruct_1shunt_plan(const mc_pwm_cmd_t *pwm_cmd,
  * Uses the pre-computed sampling plan and raw ADC readings to reconstruct
  * the instantaneous phase currents.
  *
- * @param raw               Pointer to the raw ADC sample data
- * @param cfg               Pointer to the single-shunt configuration
- * @param meta              Pointer to the sampling plan metadata
- * @param phase_current_abc Pointer to the output structure for reconstructed phase currents
+ * @param[in] raw Pointer to the raw ADC sample data.
+ *   Range: readable `mc_adc_raw_t` storage or `NULL`.
+ * @param[in] cfg Pointer to the single-shunt configuration.
+ *   Range: readable `mc_1shunt_cfg_t` storage or `NULL`.
+ * @param[in] meta Pointer to the sampling plan metadata.
+ *   Range: readable `mc_1shunt_meta_t` storage or `NULL`.
+ * @param[out] phase_current_abc Pointer to the output structure for reconstructed phase currents.
+ *   Range: writable `mc_abc_t` storage or `NULL`.
+ * @return None.
+ *   Range: not applicable.
+ * @note If any pointer is `NULL`, the call has no effect.
+ * @note The output is cleared to zero first; when `meta->sample_valid == MC_FALSE`, the output remains zero.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when concurrent calls do not share writable `phase_current_abc` storage.
  */
 void mc_reconstruct_1shunt_run(const mc_adc_raw_t *raw,
                                const mc_1shunt_cfg_t *cfg,

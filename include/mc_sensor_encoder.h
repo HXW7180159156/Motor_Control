@@ -32,18 +32,34 @@ typedef struct
 
 /**
  * @brief Initialise encoder state with configuration
- * @param state Pointer to encoder state structure
- * @param cfg Pointer to encoder configuration
- * @return MC_OK on success, or an error code
+ * @param[out] state Pointer to encoder state structure.
+ *   Range: non-NULL pointer to writable `mc_encoder_state_t` storage.
+ * @param[in] cfg Pointer to encoder configuration.
+ *   Range: non-NULL pointer to readable `mc_encoder_cfg_t` storage with `counts_per_rev > 0` and `pole_pairs > 0.0F`.
+ * @retval MC_STATUS_OK Initialization completed successfully.
+ * @retval MC_STATUS_INVALID_ARG `state == NULL`, `cfg == NULL`, `cfg->counts_per_rev == 0`, or `cfg->pole_pairs <= 0.0F`.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `state` object.
  */
 mc_status_t mc_encoder_init(mc_encoder_state_t *state, const mc_encoder_cfg_t *cfg);
 
 /**
  * @brief Update encoder state with latest count and timestamp
- * @param state Pointer to encoder state structure
- * @param encoder_count Current encoder counter value
- * @param timestamp_us Current timestamp in microseconds
- * @return MC_OK on success, or an error code
+ * @param[in,out] state Pointer to encoder state structure.
+ *   Range: non-NULL pointer to writable `mc_encoder_state_t` storage previously initialized with `mc_encoder_init()`.
+ * @param[in] encoder_count Current encoder counter value.
+ *   Range: any `uint32_t`; the implementation wraps it modulo `state->cfg.counts_per_rev` for angle calculation.
+ * @param[in] timestamp_us Current timestamp in microseconds.
+ *   Range: any `uint32_t`; monotonically increasing values are recommended for valid speed estimation.
+ * @retval MC_STATUS_OK Update completed successfully.
+ * @retval MC_STATUS_INVALID_ARG `state == NULL`.
+ * @note Mechanical speed is updated only when a previous timestamp exists and `timestamp_us > state->last_timestamp_us`.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `state` object. Not reentrant for concurrent writes to the same `state`.
  */
 mc_status_t mc_encoder_update(mc_encoder_state_t *state, uint32_t encoder_count, uint32_t timestamp_us);
 

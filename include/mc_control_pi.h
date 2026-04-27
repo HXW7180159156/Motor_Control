@@ -42,45 +42,91 @@ typedef struct
 
 /**
  * @brief Initialise a PI controller from configuration
- * @param pi   Pointer to PI controller instance
- * @param cfg  Pointer to PI configuration
+ * @param[out] pi Pointer to PI controller instance.
+ *   Range: non-NULL pointer to writable `mc_pi_t` storage.
+ * @param[in] cfg Pointer to PI configuration.
+ *   Range: non-NULL pointer to readable `mc_pi_cfg_t` storage.
+ * @return None.
+ *   Range: not applicable.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `pi` object.
  */
 void mc_pi_init(mc_pi_t *pi, const mc_pi_cfg_t *cfg);
 
 /**
  * @brief Reset PI controller state (zeroes integral and output)
- * @param pi  Pointer to PI controller instance
+ * @param[in,out] pi Pointer to PI controller instance.
+ *   Range: non-NULL pointer to writable `mc_pi_t` storage.
+ * @return None.
+ *   Range: not applicable.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `pi` object.
  */
 void mc_pi_reset(mc_pi_t *pi);
 
 /**
  * @brief Execute one step of the PI controller
- * @param pi     Pointer to PI controller instance
- * @param error  Current error signal (setpoint - feedback)
- * @param dt_s   Sample interval in seconds
- * @return Controller output after clamping
+ * @param[in,out] pi Pointer to PI controller instance.
+ *   Range: non-NULL pointer to writable `mc_pi_t`; the function returns `0.0F` if `pi == NULL`.
+ * @param[in] error Current error signal (setpoint - feedback).
+ *   Range: application-defined `mc_f32_t` control error.
+ * @param[in] dt_s Sample interval in seconds.
+ *   Range: application-defined `mc_f32_t`; `dt_s >= 0.0F` is recommended for physically meaningful integration.
+ * @return Controller output after clamping.
+ *   Range: [`pi->cfg.output_min`, `pi->cfg.output_max`] when `pi != NULL`; `0.0F` when `pi == NULL`.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `pi` object. Not reentrant for concurrent writes to the same `pi`.
  */
 mc_f32_t mc_pi_run(mc_pi_t *pi, mc_f32_t error, mc_f32_t dt_s);
 
 /**
  * @brief Initialise a Q31 PI controller from configuration
- * @param pi   Pointer to Q31 PI controller instance
- * @param cfg  Pointer to Q31 PI configuration
+ * @param[out] pi Pointer to Q31 PI controller instance.
+ *   Range: non-NULL pointer to writable `mc_pi_q31_t` storage.
+ * @param[in] cfg Pointer to Q31 PI configuration.
+ *   Range: non-NULL pointer to readable `mc_pi_q31_cfg_t` storage.
+ * @return None.
+ *   Range: not applicable.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `pi` object.
  */
 void mc_pi_q31_init(mc_pi_q31_t *pi, const mc_pi_q31_cfg_t *cfg);
 
 /**
  * @brief Reset Q31 PI controller state
- * @param pi Pointer to Q31 PI controller instance
+ * @param[in,out] pi Pointer to Q31 PI controller instance.
+ *   Range: non-NULL pointer to writable `mc_pi_q31_t` storage.
+ * @return None.
+ *   Range: not applicable.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `pi` object.
  */
 void mc_pi_q31_reset(mc_pi_q31_t *pi);
 
 /**
  * @brief Execute one step of the Q31 PI controller
- * @param pi Pointer to Q31 PI controller instance
- * @param error Current error signal in Q31
- * @param dt_q31 Sample interval in Q31
- * @return Q31 controller output after clamping
+ * @param[in,out] pi Pointer to Q31 PI controller instance.
+ *   Range: non-NULL pointer to writable `mc_pi_q31_t`; the function returns `0` if `pi == NULL`.
+ * @param[in] error Current error signal in Q31.
+ *   Range: any `mc_q31_t` in [`INT32_MIN`, `INT32_MAX`].
+ * @param[in] dt_q31 Sample interval in Q31.
+ *   Range: application-defined `mc_q31_t`; non-negative values are recommended.
+ * @return Q31 controller output after clamping.
+ *   Range: [`pi->cfg.output_min`, `pi->cfg.output_max`] when `pi != NULL`; `0` when `pi == NULL`.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `pi` object. Not reentrant for concurrent writes to the same `pi`.
  */
 mc_q31_t mc_pi_q31_run(mc_pi_q31_t *pi, mc_q31_t error, mc_q31_t dt_q31);
 

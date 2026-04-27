@@ -29,13 +29,20 @@ static mc_f32_t mc_pi_clamp(mc_f32_t value, mc_f32_t min_value, mc_f32_t max_val
     return result;
 }
 
+/**
+ * @brief Clamp a Q31 value between minimum and maximum bounds
+ * @param value Input Q31 value to clamp
+ * @param min_value Lower bound
+ * @param max_value Upper bound
+ * @return Clamped Q31 value within [min_value, max_value]
+ */
 static mc_q31_t mc_pi_q31_clamp(mc_q31_t value, mc_q31_t min_value, mc_q31_t max_value)
 {
     return mc_math_clamp_q31(value, min_value, max_value);
 }
 
 /**
- * @brief Initialize PI controller with configuration
+ * @brief Initialise PI controller with configuration
  * @param pi Pointer to PI controller structure
  * @param cfg Pointer to PI configuration (gains, limits)
  */
@@ -94,6 +101,11 @@ mc_f32_t mc_pi_run(mc_pi_t *pi, mc_f32_t error, mc_f32_t dt_s)
     return output;
 }
 
+/**
+ * @brief Initialise Q31 PI controller with configuration
+ * @param pi Pointer to Q31 PI controller structure
+ * @param cfg Pointer to Q31 PI configuration (gains, limits)
+ */
 void mc_pi_q31_init(mc_pi_q31_t *pi, const mc_pi_q31_cfg_t *cfg)
 {
     if ((pi == NULL) || (cfg == NULL))
@@ -106,6 +118,10 @@ void mc_pi_q31_init(mc_pi_q31_t *pi, const mc_pi_q31_cfg_t *cfg)
     pi->output = 0;
 }
 
+/**
+ * @brief Reset Q31 PI controller state (integral and output to zero)
+ * @param pi Pointer to Q31 PI controller structure
+ */
 void mc_pi_q31_reset(mc_pi_q31_t *pi)
 {
     if (pi == NULL)
@@ -117,6 +133,13 @@ void mc_pi_q31_reset(mc_pi_q31_t *pi)
     pi->output = 0;
 }
 
+/**
+ * @brief Execute one Q31 PI controller step
+ * @param pi Pointer to Q31 PI controller structure
+ * @param error Error signal in Q31 (setpoint - feedback)
+ * @param dt_q31 Q31 sample interval
+ * @return Controller output after integral clamping and output limiting
+ */
 mc_q31_t mc_pi_q31_run(mc_pi_q31_t *pi, mc_q31_t error, mc_q31_t dt_q31)
 {
     mc_q31_t proportional;

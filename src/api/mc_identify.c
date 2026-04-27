@@ -151,6 +151,17 @@ static void mc_identify_update_flux_estimate(mc_identify_t *id, mc_f32_t i_beta,
         return;
     }
 
+    if (!isfinite(id->v_beta) || !isfinite(i_beta))
+    {
+        return;
+    }
+
+    /* Ignore samples that oppose the applied q-axis excitation direction. */
+    if ((id->v_beta * i_beta) <= 0.0F)
+    {
+        return;
+    }
+
     di_beta_dt = (i_beta - id->i_beta_prev) / dt_s;
     omega_elec = 1.5707963268F / id->cfg.lq_align_time_s;
     if (omega_elec <= 0.0F)
@@ -200,7 +211,7 @@ static mc_f32_t mc_identify_normalized_voltage(mc_identify_t *id, mc_f32_t v_ref
 }
 
 /**
- * @brief Initialize identification instance with configuration defaults
+ * @brief Initialise identification instance with configuration defaults
  * @param id Identification instance
  * @param cfg Identification configuration (defaults applied if values are zero)
  */

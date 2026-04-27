@@ -31,7 +31,7 @@ static mc_status_t mc_hall_find_index(const mc_hall_cfg_t *cfg, uint8_t hall_cod
 }
 
 /**
- * @brief Initialize Hall sensor state with configuration
+ * @brief Initialise Hall sensor state with configuration
  * @param state [out] Hall sensor state structure
  * @param cfg Hall sensor configuration parameters
  * @return MC_STATUS_OK on success, MC_STATUS_INVALID_ARG on invalid input

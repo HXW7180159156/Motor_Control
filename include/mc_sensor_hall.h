@@ -32,19 +32,36 @@ typedef struct
 
 /**
  * @brief Initialise hall sensor state with configuration
- * @param state Pointer to hall sensor state structure
- * @param cfg Pointer to hall sensor configuration
- * @return MC_OK on success, or an error code
+ * @param[out] state Pointer to hall sensor state structure.
+ *   Range: non-NULL pointer to writable `mc_hall_state_t` storage.
+ * @param[in] cfg Pointer to hall sensor configuration.
+ *   Range: non-NULL pointer to readable `mc_hall_cfg_t` storage.
+ * @retval MC_STATUS_OK Initialization completed successfully.
+ * @retval MC_STATUS_INVALID_ARG `state == NULL` or `cfg == NULL`.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `state` object.
  */
 mc_status_t mc_hall_init(mc_hall_state_t *state, const mc_hall_cfg_t *cfg);
 
 /**
  * @brief Update hall sensor state with latest code and timestamp
- * @param state Pointer to hall sensor state structure
- * @param hall_code Current hall sensor code
- * @param timestamp_us Current timestamp in microseconds
- * @param pole_pairs Number of motor pole pairs
- * @return MC_OK on success, or an error code
+ * @param[in,out] state Pointer to hall sensor state structure.
+ *   Range: non-NULL pointer to writable `mc_hall_state_t` storage previously initialized with `mc_hall_init()`.
+ * @param[in] hall_code Current Hall sensor code.
+ *   Range: any `uint8_t`; the value must match one of the six entries in `state->cfg.hall_code_sequence`.
+ * @param[in] timestamp_us Current timestamp in microseconds.
+ *   Range: any `uint32_t`; monotonically increasing values are recommended for valid speed estimation.
+ * @param[in] pole_pairs Number of motor pole pairs.
+ *   Range: `pole_pairs > 0.0F`.
+ * @retval MC_STATUS_OK Update completed successfully.
+ * @retval MC_STATUS_INVALID_ARG `state == NULL`, `pole_pairs <= 0.0F`, or `hall_code` is not found in the configured Hall sequence.
+ * @note Mechanical speed is updated only when a previous transition exists, the timestamp increases, and the Hall code changes.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `state` object. Not reentrant for concurrent writes to the same `state`.
  */
 mc_status_t mc_hall_update(mc_hall_state_t *state, uint8_t hall_code, uint32_t timestamp_us, mc_f32_t pole_pairs);
 

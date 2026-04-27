@@ -6,6 +6,10 @@
 
 /**
  * @brief Clamp a value within a specified range
+ * @param value Input value to clamp
+ * @param min_value Lower bound
+ * @param max_value Upper bound
+ * @return Clamped value within [min_value, max_value]
  */
 static mc_f32_t mc_bldc_ss_clamp(mc_f32_t value, mc_f32_t min_value, mc_f32_t max_value)
 {
@@ -17,6 +21,7 @@ static mc_f32_t mc_bldc_ss_clamp(mc_f32_t value, mc_f32_t min_value, mc_f32_t ma
 
 /**
  * @brief Reset runtime-only state while preserving configuration
+ * @param ss BLDC sensorless drive instance to reset in place
  */
 static void mc_bldc_ss_reset_runtime(mc_bldc_sensorless_t *ss)
 {
@@ -122,6 +127,10 @@ static mc_status_t mc_bldc_ss_apply_step(uint8_t step, mc_f32_t duty_cmd, mc_pwm
 /*  Public API                                                         */
 /* ------------------------------------------------------------------ */
 
+/**
+ * @brief Return a baseline BLDC sensorless configuration
+ * @return Default BLDC sensorless configuration values
+ */
 mc_bldc_sensorless_cfg_t mc_bldc_sensorless_cfg_default(void)
 {
     mc_bldc_sensorless_cfg_t cfg;
@@ -141,6 +150,12 @@ mc_bldc_sensorless_cfg_t mc_bldc_sensorless_cfg_default(void)
     return cfg;
 }
 
+/**
+ * @brief Initialise BLDC sensorless drive runtime and configuration
+ * @param ss Pointer to BLDC sensorless drive instance
+ * @param cfg Pointer to BLDC sensorless configuration
+ * @return MC_STATUS_OK on success, MC_STATUS_INVALID_ARG on invalid input or configuration
+ */
 mc_status_t mc_bldc_sensorless_init(mc_bldc_sensorless_t *ss, const mc_bldc_sensorless_cfg_t *cfg)
 {
     if ((ss == NULL) || (cfg == NULL))
@@ -166,6 +181,11 @@ mc_status_t mc_bldc_sensorless_init(mc_bldc_sensorless_t *ss, const mc_bldc_sens
     return MC_STATUS_OK;
 }
 
+/**
+ * @brief Start the BLDC sensorless startup sequence from ALIGN
+ * @param ss Pointer to BLDC sensorless drive instance
+ * @return MC_STATUS_OK on success, MC_STATUS_INVALID_ARG if `ss` is NULL, or MC_STATUS_INVALID_STATE if the stored startup configuration is invalid
+ */
 mc_status_t mc_bldc_sensorless_start(mc_bldc_sensorless_t *ss)
 {
     if (ss == NULL)
@@ -185,6 +205,11 @@ mc_status_t mc_bldc_sensorless_start(mc_bldc_sensorless_t *ss)
     return MC_STATUS_OK;
 }
 
+/**
+ * @brief Reset BLDC sensorless runtime state to IDLE while preserving configuration
+ * @param ss Pointer to BLDC sensorless drive instance
+ * @return MC_STATUS_OK on success, MC_STATUS_INVALID_ARG if `ss` is NULL
+ */
 mc_status_t mc_bldc_sensorless_reset(mc_bldc_sensorless_t *ss)
 {
     if (ss == NULL)
@@ -197,6 +222,11 @@ mc_status_t mc_bldc_sensorless_reset(mc_bldc_sensorless_t *ss)
     return MC_STATUS_OK;
 }
 
+/**
+ * @brief Return the floating phase index for a six-step commutation state
+ * @param step Commutation step in the range [0, 5]
+ * @return Phase index (0=A, 1=B, 2=C), or `0xFF` when `step` is invalid
+ */
 uint8_t mc_bldc_sensorless_floating_phase(uint8_t step)
 {
     static const uint8_t floating_phase_map[6] = {2U, 1U, 0U, 2U, 1U, 0U};
@@ -206,6 +236,7 @@ uint8_t mc_bldc_sensorless_floating_phase(uint8_t step)
 
 /**
  * @brief Advance to the next commutation step
+ * @param ss BLDC sensorless drive instance to update in place
  */
 static void mc_bldc_ss_advance_step(mc_bldc_sensorless_t *ss)
 {
@@ -219,7 +250,9 @@ static void mc_bldc_ss_advance_step(mc_bldc_sensorless_t *ss)
 
 /**
  * @brief Detect BEMF zero-crossing on the floating phase with debounce
- * @param ss  Pointer to sensorless drive instance (updated with debounce count)
+ * @param ss Pointer to sensorless drive instance (updated with debounce count)
+ * @param floating_phase_voltage_v Floating phase voltage sample in volts
+ * @param bus_voltage_v DC bus voltage sample in volts
  * @return MC_TRUE if a valid (debounced) zero-crossing is detected
  */
 static mc_bool_t mc_bldc_ss_detect_zc(mc_bldc_sensorless_t *ss,
@@ -265,6 +298,15 @@ static mc_bool_t mc_bldc_ss_detect_zc(mc_bldc_sensorless_t *ss,
     return (ss->zc_debounce_cnt >= ss->cfg.zc_debounce_threshold) ? MC_TRUE : MC_FALSE;
 }
 
+/**
+ * @brief Execute one BLDC sensorless control cycle
+ * @param ss Pointer to BLDC sensorless drive instance
+ * @param dt_s Control-loop step time in seconds
+ * @param floating_phase_voltage_v Floating phase voltage sample in volts
+ * @param bus_voltage_v DC bus voltage sample in volts
+ * @param pwm_cmd Output PWM command for the next inverter update
+ * @return MC_STATUS_OK on success, MC_STATUS_INVALID_ARG on invalid input or internal invalid commutation state
+ */
 mc_status_t mc_bldc_sensorless_run(mc_bldc_sensorless_t *ss,
     mc_f32_t dt_s, mc_f32_t floating_phase_voltage_v, mc_f32_t bus_voltage_v,
     mc_pwm_cmd_t *pwm_cmd)
@@ -375,12 +417,23 @@ mc_status_t mc_bldc_sensorless_run(mc_bldc_sensorless_t *ss,
     return MC_STATUS_OK;
 }
 
+/**
+ * @brief Return the latest mechanical speed estimate in RPM
+ * @param ss Pointer to BLDC sensorless drive instance
+ * @return Stored speed estimate, or 0.0F when `ss` is NULL
+ */
 mc_f32_t mc_bldc_sensorless_get_speed_rpm(const mc_bldc_sensorless_t *ss)
 {
     if (ss == NULL) { return 0.0F; }
     return ss->mech_speed_rpm;
 }
 
+/**
+ * @brief Execute the BLDC sensorless speed PI update
+ * @param ss Pointer to BLDC sensorless drive instance
+ * @param speed_ref_rpm Target mechanical speed in RPM
+ * @param dt_s Speed-loop step time in seconds
+ */
 void mc_bldc_sensorless_speed_step(mc_bldc_sensorless_t *ss, mc_f32_t speed_ref_rpm, mc_f32_t dt_s)
 {
     mc_f32_t error;

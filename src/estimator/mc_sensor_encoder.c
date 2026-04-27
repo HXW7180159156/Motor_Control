@@ -4,7 +4,7 @@
 #include "mc_math.h"
 
 /**
- * @brief Initialize encoder state with configuration
+ * @brief Initialise encoder state with configuration
  * @param state [out] Encoder state structure
  * @param cfg Encoder configuration parameters
  * @return MC_STATUS_OK on success, MC_STATUS_INVALID_ARG on invalid input

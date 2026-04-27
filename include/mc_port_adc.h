@@ -59,13 +59,24 @@ typedef struct
 
 /**
  * @brief Calibrate a linear ADC channel.
- * @param raw_low Raw ADC value at the low reference point.
- * @param physical_low Physical value at the low reference point.
- * @param raw_high Raw ADC value at the high reference point.
- * @param physical_high Physical value at the high reference point.
- * @param scale Output scale factor (gain).
- * @param offset Output offset (bias).
- * @return MC_STATUS_OK on success, or an error code.
+ * @param[in] raw_low Raw ADC value at the low reference point.
+ *   Range: any `uint16_t`.
+ * @param[in] physical_low Physical value at the low reference point.
+ *   Range: application-defined `mc_f32_t`.
+ * @param[in] raw_high Raw ADC value at the high reference point.
+ *   Range: any `uint16_t`, but it must differ from `raw_low`.
+ * @param[in] physical_high Physical value at the high reference point.
+ *   Range: application-defined `mc_f32_t`.
+ * @param[out] scale Output scale factor (gain).
+ *   Range: non-NULL pointer to writable `mc_f32_t` storage.
+ * @param[out] offset Output offset (bias).
+ *   Range: non-NULL pointer to writable `mc_f32_t` storage.
+ * @retval MC_STATUS_OK Calibration coefficients were computed successfully.
+ * @retval MC_STATUS_INVALID_ARG `scale == NULL`, `offset == NULL`, or `raw_high == raw_low`.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses different writable `scale` and `offset` storage.
  */
 mc_status_t mc_adc_calibrate_linear(uint16_t raw_low, mc_f32_t physical_low,
                                     uint16_t raw_high, mc_f32_t physical_high,

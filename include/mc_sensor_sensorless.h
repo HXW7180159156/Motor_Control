@@ -65,21 +65,45 @@ typedef struct
 } mc_sensorless_state_t;
 
 /**
- * @brief Initialise sensorless observer state with configuration
- * @param state Pointer to sensorless observer state structure
- * @param cfg Pointer to sensorless observer configuration
- * @return MC_OK on success, or an error code
+ * @brief Initialise the sensorless observer state
+ * @param[out] state Pointer to sensorless observer state storage.
+ *   Range: non-NULL pointer to writable `mc_sensorless_state_t` storage.
+ * @param[in] cfg Sensorless observer configuration.
+ *   Range: non-NULL pointer to readable `mc_sensorless_cfg_t` storage with:
+ *   `pole_pairs > 0.0F`, `ls_h >= 0.0F`, `bemf_filter_alpha` in `(0.0F, 1.0F]`,
+ *   `min_bemf >= 0.0F`, `pll_kp >= 0.0F`, `pll_ki >= 0.0F`,
+ *   `lock_bemf > min_bemf`, `startup_speed_rad_s >= 0.0F`,
+ *   `startup_accel_rad_s2 >= 0.0F`, `open_loop_voltage_start >= 0.0F`, and
+ *   `open_loop_voltage_max >= open_loop_voltage_start`.
+ * @retval MC_STATUS_OK Initialization completed successfully.
+ * @retval MC_STATUS_INVALID_ARG `state == NULL`, `cfg == NULL`, or any configuration constraint above is violated.
+ * @note On success, the state is cleared and `open_loop_active` starts as `MC_TRUE`.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `state` object.
  */
 mc_status_t mc_sensorless_init(mc_sensorless_state_t *state, const mc_sensorless_cfg_t *cfg);
 
 /**
- * @brief Update sensorless observer with voltage and current measurements
- * @param state Pointer to sensorless observer state structure
- * @param voltage_ab Voltage vector in alpha-beta frame
- * @param current_ab Current vector in alpha-beta frame
- * @param dt_s Sample interval in seconds
- * @param timestamp_us Current timestamp in microseconds
- * @return MC_OK on success, or an error code
+ * @brief Update the sensorless observer with one voltage/current sample pair
+ * @param[in,out] state Pointer to sensorless observer state storage.
+ *   Range: non-NULL pointer to writable `mc_sensorless_state_t` storage.
+ * @param[in] voltage_ab Applied alpha-beta voltage vector.
+ *   Range: non-NULL pointer to readable `mc_alphabeta_t` storage.
+ * @param[in] current_ab Measured alpha-beta current vector.
+ *   Range: non-NULL pointer to readable `mc_alphabeta_t` storage.
+ * @param[in] dt_s Sample interval [s].
+ *   Range: `dt_s > 0.0F`.
+ * @param[in] timestamp_us Caller-supplied timestamp [us].
+ *   Range: any `uint32_t`; stored for diagnostics/state tracking.
+ * @retval MC_STATUS_OK Update completed successfully.
+ * @retval MC_STATUS_INVALID_ARG `state == NULL`, `voltage_ab == NULL`, `current_ab == NULL`, or `dt_s <= 0.0F`.
+ * @note When `bemf_magnitude < cfg.min_bemf`, the observer is invalidated, lock/debounce state is cleared, and the function still returns `MC_STATUS_OK`.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different `state` object. Not reentrant for concurrent writes to the same `state`.
  */
 mc_status_t mc_sensorless_update(mc_sensorless_state_t *state,
                                  const mc_alphabeta_t *voltage_ab,

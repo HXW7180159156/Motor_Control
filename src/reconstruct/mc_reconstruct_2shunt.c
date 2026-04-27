@@ -28,6 +28,12 @@ void mc_reconstruct_2shunt_run(const mc_adc_raw_t *raw, const mc_2shunt_cfg_t *c
     phase_current_abc->c = -(ia + ib);
 }
 
+/**
+ * @brief Reconstruct phase currents from two shunt ADC samples in Q31
+ * @param raw Raw ADC sample data (phase A and B)
+ * @param cfg 2-shunt Q31 configuration parameters
+ * @param phase_current_abc [out] Reconstructed three-phase currents in Q31
+ */
 void mc_reconstruct_2shunt_q31_run(const mc_adc_raw_t *raw, const mc_2shunt_q31_cfg_t *cfg, mc_abc_q31_t *phase_current_abc)
 {
     mc_q31_t ia;

@@ -101,7 +101,7 @@ static mc_status_t mc_bldc_apply_commutation(uint8_t hall_code, mc_f32_t duty_cm
 }
 
 /**
- * @brief Initialize a BLDC Hall-sensor drive instance
+ * @brief Initialise a BLDC Hall-sensor drive instance
  * @param drive Pointer to the BLDC Hall drive structure
  * @param cfg Pointer to the Hall drive configuration
  * @return MC_STATUS_OK on success, MC_STATUS_INVALID_ARG if pointers are NULL

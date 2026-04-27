@@ -145,6 +145,12 @@ void mc_svpwm_run(const mc_alphabeta_t *voltage_ab, const mc_svpwm_cfg_t *cfg, m
     pwm_cmd->valid = 1U;
 }
 
+/**
+ * @brief Execute SVPWM from a Q31 alpha-beta voltage vector
+ * @param voltage_ab_q31 Desired voltage vector in Q31 alpha-beta frame
+ * @param cfg SVPWM configuration (modulation limit, duty limits)
+ * @param pwm_cmd Output PWM command (duty cycles, sector, valid flag)
+ */
 void mc_svpwm_q31_run(const mc_alphabeta_q31_t *voltage_ab_q31, const mc_svpwm_cfg_t *cfg, mc_pwm_cmd_t *pwm_cmd)
 {
     mc_alphabeta_t voltage_ab;

@@ -29,7 +29,7 @@ static mc_f32_t mc_control_foc_clamp(mc_f32_t value, mc_f32_t min_value, mc_f32_
 }
 
 /**
- * @brief Initialize FOC controller instance
+ * @brief Initialise FOC controller instance
  * @param control Pointer to FOC control structure
  * @param cfg Pointer to PMSM FOC configuration
  * @return MC_STATUS_OK on success, MC_STATUS_INVALID_ARG if inputs are NULL

@@ -20,6 +20,7 @@
 - Non-physical negative `Rs`, `Ld`, and `Lq` identify estimates are now rejected before they can propagate into the runtime model.
 - `identify` inductance and flux windows now use time-weighted averaging over the actual discrete injected duration instead of idealized fixed-width averaging.
 - `identify` now tracks internal raw candidates for `Rs`, `Ld`, `Lq`, and `flux_wb`, while public result APIs continue to expose trusted values only.
+- `identify` flux accumulation now rejects q-axis current samples that oppose the applied excitation direction, so rebound samples do not inflate the first open-loop `flux_wb` estimate.
 - The PMSM sensorless observer now requires consecutive qualifying samples before leaving open-loop startup or toggling PLL lock state.
 - Public docs and headers now describe the PMSM sensorless observer's lock/unlock debounce assumptions and baseline tuning limits.
 - `mc_sensorless_init()` now enforces the documented `min_bemf < lock_bemf` and non-inverted open-loop voltage-ramp constraints.

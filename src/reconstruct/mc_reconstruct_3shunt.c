@@ -22,6 +22,12 @@ void mc_reconstruct_3shunt_run(const mc_adc_raw_t *raw, const mc_3shunt_cfg_t *c
     phase_current_abc->c = (((mc_f32_t)raw->phase_c_raw) - cfg->offset_c) * cfg->scale_c;
 }
 
+/**
+ * @brief Reconstruct phase currents from three shunt ADC samples in Q31
+ * @param raw Raw ADC sample data (phases A, B, C)
+ * @param cfg 3-shunt Q31 configuration parameters
+ * @param phase_current_abc [out] Reconstructed three-phase currents in Q31
+ */
 void mc_reconstruct_3shunt_q31_run(const mc_adc_raw_t *raw, const mc_3shunt_q31_cfg_t *cfg, mc_abc_q31_t *phase_current_abc)
 {
     mc_q31_t raw_a;

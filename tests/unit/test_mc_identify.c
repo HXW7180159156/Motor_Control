@@ -326,6 +326,38 @@ void test_mc_identify_flux_estimate_time_weights_variable_dt_samples(void)
     TEST_ASSERT_TRUE(fabsf(id.flux_wb - expected_flux) < 1e-6F);
 }
 
+void test_mc_identify_flux_estimate_rejects_current_opposite_to_q_axis_excitation(void)
+{
+    mc_identify_t id;
+    mc_identify_cfg_t cfg = {0};
+    mc_identify_input_t in = {{0.0F, -0.05F}, 0.001F};
+    mc_identify_output_t out = {0};
+    mc_status_t status;
+
+    cfg.svpwm_cfg = (mc_svpwm_cfg_t){0.0F, 1.0F, 0.95F};
+    cfg.voltage_limit = 2.0F;
+    cfg.max_current_a = 10.0F;
+    cfg.pulse_voltage = 0.5F;
+    cfg.lq_align_time_s = 0.1F;
+    cfg.lq_pulse_time_s = 0.001F;
+
+    mc_identify_init(&id, &cfg);
+    id.state = MC_IDENTIFY_STATE_LQ_MEASURE;
+    id.rs_ohm = 0.2F;
+    id.lq_h = 0.05F;
+    id.v_beta = cfg.pulse_voltage * cfg.voltage_limit;
+    id.i_beta_prev = -0.05F;
+    id.flux_wb = 0.025F;
+
+    status = mc_identify_run(&id, &in, &out);
+    TEST_ASSERT_EQUAL_INT(MC_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_INT(MC_IDENTIFY_STATE_COMPLETE, id.state);
+    TEST_ASSERT_EQUAL_INT(0, (int)id.flux_sample_count);
+    TEST_ASSERT_TRUE(fabsf(id.flux_time_acc_s) < 1e-12F);
+    TEST_ASSERT_TRUE(fabsf(id.flux_candidate_wb) < 1e-12F);
+    TEST_ASSERT_TRUE(fabsf(id.flux_wb - 0.025F) < 1e-6F);
+}
+
 void test_mc_identify_lq_inject_defers_first_flux_sample_until_lq_measure_when_lq_is_unknown(void)
 {
     mc_identify_t id;

@@ -135,7 +135,7 @@ static void mc_api_reconstruct_current_ab(const mc_instance_t *inst,
 }
 
 /**
- * @brief Initialize estimator subsystems (hall, encoder, resolver, sensorless)
+ * @brief Initialise estimator subsystems (hall, encoder, resolver, sensorless)
  * @param inst Motor control instance
  * @return MC_STATUS_OK on success, or error status
  */
@@ -217,7 +217,7 @@ static mc_status_t mc_api_init_estimators(mc_instance_t *inst)
 }
 
 /**
- * @brief Initialize FOC controller from instance configuration
+ * @brief Initialise FOC controller from instance configuration
  * @param inst Motor control instance
  * @return MC_STATUS_OK on success, or error status
  */
@@ -254,7 +254,7 @@ static mc_status_t mc_api_init_foc(mc_instance_t *inst)
 }
 
 /**
- * @brief Initialize the limited Q31 speed-loop state used by the top-level API
+ * @brief Initialise the limited Q31 speed-loop state used by the top-level API
  * @param inst Motor control instance
  * @return MC_STATUS_OK on success, or error status
  */
@@ -371,7 +371,7 @@ static void mc_api_apply_trusted_identify_results(mc_instance_t *inst)
 }
 
 /**
- * @brief Initialize BLDC Hall controller from instance configuration
+ * @brief Initialise BLDC Hall controller from instance configuration
  * @param inst Motor control instance
  * @return MC_STATUS_OK on success, or error status
  */
@@ -609,7 +609,7 @@ static mc_status_t mc_api_reset_runtime(mc_instance_t *inst)
 }
 
 /**
- * @brief Initialize a motor control instance with system configuration
+ * @brief Initialise a motor control instance with system configuration
  * @param inst Motor control instance to initialize
  * @param cfg System configuration (sensor, motor, FOC, hooks)
  * @return MC_STATUS_OK on success, MC_STATUS_INVALID_ARG if pointers are NULL
