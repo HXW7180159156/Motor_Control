@@ -22,6 +22,7 @@
 #include "mc_sensor_hall.h"
 #include "mc_sensor_resolver.h"
 #include "mc_sensor_sensorless.h"
+#include "mc_sensor_smo.h"
 #include "mc_status.h"
 #include "mc_types.h"
 
@@ -36,7 +37,8 @@ typedef enum
     MC_MODE_PMSM_FOC_HALL,
     MC_MODE_PMSM_FOC_ENCODER,
     MC_MODE_PMSM_FOC_RESOLVER,
-    MC_MODE_PMSM_FOC_SENSORLESS
+    MC_MODE_PMSM_FOC_SENSORLESS,
+    MC_MODE_PMSM_FOC_SMO
 } mc_mode_t;
 
 /**
@@ -215,6 +217,7 @@ typedef struct
     mc_encoder_state_t encoder;     /**< Encoder sub-instance state */
     mc_resolver_state_t resolver;   /**< Resolver sub-instance state */
     mc_sensorless_state_t sensorless; /**< Sensorless sub-instance state */
+    mc_smo_state_t smo;                   /**< SMO sub-instance state */
     mc_pmsm_foc_output_t foc_last_output; /**< Most recent FOC cycle output */
     mc_identify_t identify;               /**< Motor parameter identification state */
 } mc_instance_t;

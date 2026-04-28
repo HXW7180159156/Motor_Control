@@ -48,9 +48,59 @@
   - `startup_speed_rad_s` / `startup_accel_rad_s2` / 开环电压斜坡需要与电机反电势建立速度匹配；过低会迟迟无法满足 `lock_bemf`，过高会增大切换时角误差。
 - 上述 `min_bemf < lock_bemf` 以及开环电压斜坡不倒挂的约束，当前已在 `mc_sensorless_init()` 中做参数校验。
 
+### SMO (滑模观测器)
+
+Sliding Mode Observer 是 LPF+PLL 观测器的生产级替代方案。通过滑模符号函数驱动电流误差收敛，提取反电势后经 PLL 计算位置。
+
+**文件**: `src/estimator/mc_sensor_smo.c`, `include/mc_sensor_smo.h`
+
+**算法步骤**:
+
+```
+1. SMO 电流观测器:
+   i_err = i_hat - i_measured
+   z = k_slide * sign(i_err)                         // 滑模校正项
+   di_hat/dt = (v - Rs*i_hat + z) / Ls               // 前向 Euler 离散化
+
+2. 反电势提取 (一阶 LPF):
+   bemf = LPF(z, lpf_alpha)
+
+3. PLL 锁相:
+   bemf_mag = |bemf_ab|
+   if bemf_mag < min_bemf: observer_valid = FALSE
+   measured_angle = atan2(bemf_beta, bemf_alpha) - π/2
+   angle_error = measured_angle - elec_angle
+   speed = PLL_integrator + pll_kp * angle_error
+   PLL_integrator += pll_ki * angle_error * dt
+   elec_angle += speed * dt
+
+4. 开环启动: 同上 (V/f 斜坡 → lock_bemf handoff)
+```
+
+**调参指南**:
+
+| 参数 | 范围建议 | 说明 |
+|---|---|---|
+| `k_slide` | 1.5~3.0 × 最大 BEMF | 过小则收敛慢，过大则抖振加剧 |
+| `lpf_alpha` | 0.3~0.7 | 过低延迟大，过高滤波不足 |
+| `pll_kp` | 100~800 | 同上 |
+| `pll_ki` | 5000~50000 | 同上 |
+
+**与 LPF+PLL 的对比**:
+
+| 特性 | LPF+PLL | SMO |
+|---|---|---|
+| 噪声免疫 | 中（LPF 直接过滤测量 BEMF） | 高（滑模切换天然滤除高频噪声） |
+| 相位滞后 | 较大（LPF 延迟） | 小（LPF 仅过滤 z 信号，信号路径短） |
+| 参数鲁棒性 | 取决于 LPF α | 取决于 k_slide 余量 |
+| 计算开销 | 低 | 中（多一次电流观测器积分） |
+| 收敛速度 | 慢于 SMO | 快（滑模切换快速收敛） |
+
+**模式选择**: `MC_MODE_PMSM_FOC_SMO` 在 API 层使用 `mc_api.c` 中的 SMO 专用路径。当前 SMO 与 LPF+PLL 共享 `mc_system_cfg_t.sensor.sensorless_cfg` 配置入口，API 层在 init 时自动将 sensorless 配置映射为 SMO 参数（k_slide 默认取 3×lock_bemf，lpf_alpha 取 0.5）。
+
 ### 后续增强方向
 
-- SMO 或扩展反电势观测器
+- 扩展反电势观测器 (model-based EEMF)
 - 启动阶段开环/半闭环切换
 - 低速区锁相与有效性诊断增强
 

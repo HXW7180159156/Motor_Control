@@ -31,6 +31,7 @@ add_library(motor_control STATIC
     src/estimator/mc_sensor_hall.c
     src/estimator/mc_sensor_resolver.c
     src/estimator/mc_sensor_sensorless.c
+    src/estimator/mc_sensor_smo.c
     src/drive/mc_drive_bldc.c
     src/drive/mc_drive_bldc_sensorless.c
     src/drive/mc_drive_pmsm.c)
@@ -72,6 +73,7 @@ if(MC_BUILD_TESTS)
         tests/unit/test_mc_sensor_hall.c
         tests/unit/test_mc_sensor_resolver.c
         tests/unit/test_mc_sensor_sensorless.c
+        tests/unit/test_mc_sensor_smo.c
         tests/unit/test_mc_drive_bldc.c
         tests/unit/test_mc_drive_bldc_sensorless.c
         tests/unit/test_mc_drive_pmsm.c

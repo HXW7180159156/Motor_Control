@@ -213,6 +213,65 @@ static mc_status_t mc_api_init_estimators(mc_instance_t *inst)
         }
         status = mc_sensorless_init(&inst->sensorless, &sensorless_cfg);
     }
+    else if (inst->cfg.sensor.primary_mode == MC_MODE_PMSM_FOC_SMO)
+    {
+        mc_smo_cfg_t smo_cfg;
+
+        smo_cfg.rs_ohm = inst->cfg.motor.rs_ohm;
+        smo_cfg.ls_h = MC_1SHUNT_HALF * (inst->cfg.motor.ld_h + inst->cfg.motor.lq_h);
+        smo_cfg.pole_pairs = (mc_f32_t)inst->cfg.motor.pole_pairs;
+        smo_cfg.k_slide = inst->cfg.sensor.sensorless_cfg.lock_bemf * 3.0F;
+        if (smo_cfg.k_slide <= 0.0F)
+        {
+            smo_cfg.k_slide = 1.0F;
+        }
+        smo_cfg.lpf_alpha = inst->cfg.sensor.sensorless_cfg.bemf_filter_alpha;
+        if (smo_cfg.lpf_alpha <= 0.0F)
+        {
+            smo_cfg.lpf_alpha = 0.5F;
+        }
+        smo_cfg.min_bemf = inst->cfg.sensor.sensorless_cfg.min_bemf;
+        if (smo_cfg.min_bemf <= 0.0F)
+        {
+            smo_cfg.min_bemf = MC_SENSORLESS_DEFAULT_MIN_BEMF;
+        }
+        smo_cfg.pll_kp = inst->cfg.sensor.sensorless_cfg.pll_kp;
+        if (smo_cfg.pll_kp <= 0.0F)
+        {
+            smo_cfg.pll_kp = MC_SENSORLESS_DEFAULT_PLL_KP;
+        }
+        smo_cfg.pll_ki = inst->cfg.sensor.sensorless_cfg.pll_ki;
+        if (smo_cfg.pll_ki <= 0.0F)
+        {
+            smo_cfg.pll_ki = MC_SENSORLESS_DEFAULT_PLL_KI;
+        }
+        smo_cfg.lock_bemf = inst->cfg.sensor.sensorless_cfg.lock_bemf;
+        if (smo_cfg.lock_bemf <= 0.0F)
+        {
+            smo_cfg.lock_bemf = smo_cfg.min_bemf * MC_SENSORLESS_DEFAULT_LOCK_BEMF_RATIO;
+        }
+        smo_cfg.startup_speed_rad_s = inst->cfg.sensor.sensorless_cfg.startup_speed_rad_s;
+        if (smo_cfg.startup_speed_rad_s <= 0.0F)
+        {
+            smo_cfg.startup_speed_rad_s = MC_SENSORLESS_DEFAULT_STARTUP_SPEED_RAD_S;
+        }
+        smo_cfg.startup_accel_rad_s2 = inst->cfg.sensor.sensorless_cfg.startup_accel_rad_s2;
+        if (smo_cfg.startup_accel_rad_s2 <= 0.0F)
+        {
+            smo_cfg.startup_accel_rad_s2 = MC_SENSORLESS_DEFAULT_STARTUP_ACCEL_RAD_S2;
+        }
+        smo_cfg.open_loop_voltage_max = inst->cfg.sensor.sensorless_cfg.open_loop_voltage_max;
+        if (smo_cfg.open_loop_voltage_max <= 0.0F)
+        {
+            smo_cfg.open_loop_voltage_max = MC_SENSORLESS_DEFAULT_OL_VOLTAGE_RATIO * inst->cfg.foc.voltage_limit;
+        }
+        smo_cfg.open_loop_voltage_start = inst->cfg.sensor.sensorless_cfg.open_loop_voltage_start;
+        if (smo_cfg.open_loop_voltage_start < 0.0F)
+        {
+            smo_cfg.open_loop_voltage_start = 0.0F;
+        }
+        status = mc_smo_init(&inst->smo, &smo_cfg);
+    }
 
     return status;
 }
@@ -346,7 +405,12 @@ static void mc_api_apply_identified_params(mc_instance_t *inst,
     if (inst->cfg.sensor.primary_mode == MC_MODE_PMSM_FOC_SENSORLESS)
     {
         inst->sensorless.cfg.rs_ohm = inst->cfg.motor.rs_ohm;
-            inst->sensorless.cfg.ls_h = MC_1SHUNT_HALF * (inst->cfg.motor.ld_h + inst->cfg.motor.lq_h);
+        inst->sensorless.cfg.ls_h = MC_1SHUNT_HALF * (inst->cfg.motor.ld_h + inst->cfg.motor.lq_h);
+    }
+    else if (inst->cfg.sensor.primary_mode == MC_MODE_PMSM_FOC_SMO)
+    {
+        inst->smo.cfg.rs_ohm = inst->cfg.motor.rs_ohm;
+        inst->smo.cfg.ls_h = MC_1SHUNT_HALF * (inst->cfg.motor.ld_h + inst->cfg.motor.lq_h);
     }
 }
 
@@ -431,6 +495,10 @@ static mc_status_t mc_api_update_position(mc_instance_t *inst, const mc_fast_inp
     {
         angle_rad = inst->sensorless.elec_angle_rad;
     }
+    else if (inst->mode == MC_MODE_PMSM_FOC_SMO)
+    {
+        angle_rad = inst->smo.elec_angle_rad;
+    }
 
     angle_rad = mc_math_wrap_angle_rad(angle_rad);
 
@@ -482,6 +550,11 @@ static mc_f32_t mc_api_get_elec_speed_rad_s(const mc_instance_t *inst)
     {
         mech_speed_rpm = inst->sensorless.mech_speed_rpm;
         pole_pairs = inst->sensorless.cfg.pole_pairs;
+    }
+    else if (inst->mode == MC_MODE_PMSM_FOC_SMO)
+    {
+        mech_speed_rpm = inst->smo.mech_speed_rpm;
+        pole_pairs = inst->smo.cfg.pole_pairs;
     }
     else
     {
@@ -595,7 +668,9 @@ static mc_status_t mc_api_reset_runtime(mc_instance_t *inst)
     inst->resolver.signal_valid = MC_FALSE;
     inst->resolver.last_timestamp_us = 0U;
     inst->sensorless = (mc_sensorless_state_t){0};
-    if (inst->cfg.sensor.primary_mode == MC_MODE_PMSM_FOC_SENSORLESS)
+    inst->smo = (mc_smo_state_t){0};
+    if ((inst->cfg.sensor.primary_mode == MC_MODE_PMSM_FOC_SENSORLESS) ||
+        (inst->cfg.sensor.primary_mode == MC_MODE_PMSM_FOC_SMO))
     {
         mc_status_t init_status = mc_api_init_estimators(inst);
         if (init_status != MC_STATUS_OK)
@@ -646,7 +721,8 @@ mc_status_t mc_init(mc_instance_t *inst, const mc_system_cfg_t *cfg)
     if ((next_inst.mode == MC_MODE_PMSM_FOC_HALL) ||
         (next_inst.mode == MC_MODE_PMSM_FOC_ENCODER) ||
         (next_inst.mode == MC_MODE_PMSM_FOC_RESOLVER) ||
-        (next_inst.mode == MC_MODE_PMSM_FOC_SENSORLESS))
+        (next_inst.mode == MC_MODE_PMSM_FOC_SENSORLESS) ||
+        (next_inst.mode == MC_MODE_PMSM_FOC_SMO))
     {
         status = mc_api_init_foc(&next_inst);
         if (status != MC_STATUS_OK)
@@ -1026,7 +1102,8 @@ mc_status_t mc_fast_step(mc_instance_t *inst, const mc_fast_input_t *in, mc_fast
     if ((inst->mode == MC_MODE_PMSM_FOC_HALL) ||
         (inst->mode == MC_MODE_PMSM_FOC_ENCODER) ||
         (inst->mode == MC_MODE_PMSM_FOC_RESOLVER) ||
-        (inst->mode == MC_MODE_PMSM_FOC_SENSORLESS))
+        (inst->mode == MC_MODE_PMSM_FOC_SENSORLESS) ||
+        (inst->mode == MC_MODE_PMSM_FOC_SMO))
     {
         mc_pmsm_foc_input_t foc_in;
 
@@ -1069,6 +1146,30 @@ mc_status_t mc_fast_step(mc_instance_t *inst, const mc_fast_input_t *in, mc_fast
             }
         }
 
+        if (inst->mode == MC_MODE_PMSM_FOC_SMO)
+        {
+            mc_alphabeta_t current_ab;
+            mc_alphabeta_t voltage_ab = inst->foc_last_output.v_ab;
+
+            mc_api_reconstruct_current_ab(inst, &in->adc_raw, &current_ab);
+
+            if (mc_smo_update(&inst->smo,
+                              &voltage_ab,
+                              &current_ab,
+                              inst->cfg.control.current_loop_dt_s,
+                              in->timestamp_us) != MC_STATUS_OK)
+            {
+                return MC_STATUS_ERROR;
+            }
+
+            if ((inst->smo.observer_valid != MC_FALSE) && (inst->smo.open_loop_active == MC_FALSE))
+            {
+                foc_in.sin_theta = sinf(inst->smo.elec_angle_rad);
+                foc_in.cos_theta = cosf(inst->smo.elec_angle_rad);
+                foc_in.elec_speed_rad_s = mc_api_get_elec_speed_rad_s(inst);
+            }
+        }
+
         if (mc_control_foc_run(&inst->foc, &foc_in, &inst->foc_last_output) != MC_STATUS_OK)
         {
             return MC_STATUS_ERROR;
@@ -1092,14 +1193,42 @@ mc_status_t mc_fast_step(mc_instance_t *inst, const mc_fast_input_t *in, mc_fast
             }
         }
 
+        if ((inst->mode == MC_MODE_PMSM_FOC_SMO) &&
+            (inst->smo.open_loop_active != MC_FALSE) &&
+            (inst->smo.open_loop_voltage > 0.0F))
+        {
+            mc_alphabeta_t v_ab = inst->foc_last_output.v_ab;
+            mc_f32_t v_mag = sqrtf(v_ab.alpha * v_ab.alpha + v_ab.beta * v_ab.beta);
+            if (v_mag > inst->smo.open_loop_voltage)
+            {
+                mc_f32_t v_scale = inst->smo.open_loop_voltage / v_mag;
+                v_ab.alpha *= v_scale;
+                v_ab.beta *= v_scale;
+                mc_svpwm_run(&v_ab, &inst->cfg.foc.svpwm_cfg, &inst->foc_last_output.pwm_cmd);
+                inst->foc_last_output.v_ab = v_ab;
+                inst->foc_last_output.v_dq.d *= v_scale;
+                inst->foc_last_output.v_dq.q *= v_scale;
+            }
+        }
+
         out->pwm_cmd = inst->foc_last_output.pwm_cmd;
         out->adc_trigger_plan = inst->foc_last_output.adc_trigger_plan;
         out->current_comp_status = inst->foc_last_output.current_comp_status;
         inst->diag.current_comp_status = out->current_comp_status;
-        inst->diag.sensorless_observer_valid = inst->sensorless.observer_valid;
-        inst->diag.sensorless_pll_locked = inst->sensorless.pll_locked;
-        inst->diag.sensorless_open_loop_active = inst->sensorless.open_loop_active;
-        if ((inst->mode == MC_MODE_PMSM_FOC_SENSORLESS) && (inst->sensorless.pll_locked == MC_FALSE))
+        if (inst->mode == MC_MODE_PMSM_FOC_SENSORLESS)
+        {
+            inst->diag.sensorless_observer_valid = inst->sensorless.observer_valid;
+            inst->diag.sensorless_pll_locked = inst->sensorless.pll_locked;
+            inst->diag.sensorless_open_loop_active = inst->sensorless.open_loop_active;
+        }
+        else if (inst->mode == MC_MODE_PMSM_FOC_SMO)
+        {
+            inst->diag.sensorless_observer_valid = inst->smo.observer_valid;
+            inst->diag.sensorless_pll_locked = inst->smo.pll_locked;
+            inst->diag.sensorless_open_loop_active = inst->smo.open_loop_active;
+        }
+        if (((inst->mode == MC_MODE_PMSM_FOC_SENSORLESS) && (inst->sensorless.pll_locked == MC_FALSE)) ||
+            ((inst->mode == MC_MODE_PMSM_FOC_SMO) && (inst->smo.pll_locked == MC_FALSE)))
         {
             inst->diag.active_warning = MC_WARNING_OBSERVER_UNLOCKED;
         }
