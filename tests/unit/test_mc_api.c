@@ -196,6 +196,16 @@ void test_mc_identify_flux_estimate_keeps_seed_when_no_valid_samples_exist(void)
 void test_mc_identify_get_result_returns_flux_estimate(void);
 void test_mc_identify_flux_candidate_tracks_raw_measurement_before_trust_gate(void);
 
+void test_mc_auto_tune_current_pi_produces_positive_gains(void);
+void test_mc_auto_tune_current_pi_rejects_null_output(void);
+void test_mc_auto_tune_current_pi_rejects_zero_rs(void);
+void test_mc_auto_tune_current_pi_rejects_zero_pwm_freq(void);
+void test_mc_auto_tune_current_pi_salient_motor_different_kp(void);
+void test_mc_auto_tune_current_pi_aggressive_divider_produces_higher_gains(void);
+void test_mc_auto_tune_speed_pi_produces_positive_gains(void);
+void test_mc_auto_tune_speed_pi_rejects_null(void);
+void test_mc_auto_tune_speed_pi_rejects_zero_ld(void);
+
 void test_mc_diag_1shunt_comp_mode_name_none(void);
 void test_mc_diag_1shunt_comp_mode_name_predict_basic(void);
 void test_mc_diag_1shunt_comp_mode_name_predict_high_modulation(void);
@@ -1430,6 +1440,15 @@ int main(void)
     RUN_TEST(test_mc_identify_flux_estimate_keeps_seed_when_no_valid_samples_exist);
     RUN_TEST(test_mc_identify_get_result_returns_flux_estimate);
     RUN_TEST(test_mc_identify_flux_candidate_tracks_raw_measurement_before_trust_gate);
+    RUN_TEST(test_mc_auto_tune_current_pi_produces_positive_gains);
+    RUN_TEST(test_mc_auto_tune_current_pi_rejects_null_output);
+    RUN_TEST(test_mc_auto_tune_current_pi_rejects_zero_rs);
+    RUN_TEST(test_mc_auto_tune_current_pi_rejects_zero_pwm_freq);
+    RUN_TEST(test_mc_auto_tune_current_pi_salient_motor_different_kp);
+    RUN_TEST(test_mc_auto_tune_current_pi_aggressive_divider_produces_higher_gains);
+    RUN_TEST(test_mc_auto_tune_speed_pi_produces_positive_gains);
+    RUN_TEST(test_mc_auto_tune_speed_pi_rejects_null);
+    RUN_TEST(test_mc_auto_tune_speed_pi_rejects_zero_ld);
     RUN_TEST(test_mc_diag_1shunt_comp_mode_name_returns_readable_strings);
     RUN_TEST(test_mc_diag_1shunt_comp_mode_name_none);
     RUN_TEST(test_mc_diag_1shunt_comp_mode_name_predict_basic);

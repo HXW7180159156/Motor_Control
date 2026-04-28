@@ -81,6 +81,7 @@ if(MC_BUILD_TESTS)
         tests/unit/test_mc_diag.c
         tests/unit/test_mc_adc_calibrate.c
         tests/unit/test_mc_identify.c
+        tests/unit/test_mc_auto_tune.c
         tests/support/unity/unity.c)
 
     target_include_directories(test_mc_api

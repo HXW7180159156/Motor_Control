@@ -1560,3 +1560,67 @@ mc_status_t mc_get_version(uint32_t *version)
     *version = MC_VERSION_U32;
     return MC_STATUS_OK;
 }
+
+mc_status_t mc_auto_tune_pi(mc_instance_t *inst,
+                             mc_f32_t bandwidth_divider,
+                             mc_f32_t speed_ratio)
+{
+    mc_pi_cfg_t id_cfg;
+    mc_pi_cfg_t iq_cfg;
+    mc_pi_cfg_t speed_cfg;
+    mc_status_t status;
+
+    if (inst == NULL)
+    {
+        return MC_STATUS_INVALID_ARG;
+    }
+
+    if (bandwidth_divider < 1.0F)
+    {
+        bandwidth_divider = 20.0F;
+    }
+    if (speed_ratio < 1.0F)
+    {
+        speed_ratio = 10.0F;
+    }
+
+    status = mc_auto_tune_current_pi(inst->cfg.motor.rs_ohm,
+                                      inst->cfg.motor.ld_h,
+                                      inst->cfg.motor.lq_h,
+                                      inst->cfg.control.pwm_frequency_hz,
+                                      bandwidth_divider,
+                                      inst->cfg.foc.voltage_limit,
+                                      inst->cfg.foc.iq_limit,
+                                      &id_cfg,
+                                      &iq_cfg);
+    if (status != MC_STATUS_OK)
+    {
+        return status;
+    }
+
+    status = mc_auto_tune_speed_pi(inst->cfg.motor.ld_h,
+                                    inst->cfg.control.pwm_frequency_hz,
+                                    bandwidth_divider,
+                                    speed_ratio,
+                                    inst->cfg.foc.iq_limit,
+                                    &speed_cfg);
+    if (status != MC_STATUS_OK)
+    {
+        return status;
+    }
+
+    inst->cfg.foc.id_pi_cfg = id_cfg;
+    inst->cfg.foc.iq_pi_cfg = iq_cfg;
+    inst->cfg.foc.speed_pi_cfg = speed_cfg;
+
+    if ((inst->mode == MC_MODE_PMSM_FOC_HALL) ||
+        (inst->mode == MC_MODE_PMSM_FOC_ENCODER) ||
+        (inst->mode == MC_MODE_PMSM_FOC_RESOLVER) ||
+        (inst->mode == MC_MODE_PMSM_FOC_SENSORLESS) ||
+        (inst->mode == MC_MODE_PMSM_FOC_SMO))
+    {
+        mc_control_foc_set_speed_pi(&inst->foc, &speed_cfg, inst->cfg.foc.iq_limit);
+    }
+
+    return MC_STATUS_OK;
+}

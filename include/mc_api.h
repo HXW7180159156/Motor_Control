@@ -517,4 +517,24 @@ mc_status_t mc_get_diag(const mc_instance_t *inst, mc_diag_status_t *diag);
  */
 mc_status_t mc_get_version(uint32_t *version);
 
+/**
+ * @brief Auto-tune current and speed PI gains from identified motor parameters
+ *
+ * Convenience wrapper that reads motor parameters from the instance config,
+ * computes current-loop PI gains via mc_auto_tune_current_pi, and
+ * speed-loop PI gains via mc_auto_tune_speed_pi, then writes them
+ * back into the instance's FOC configuration.
+ *
+ * @param[in,out] inst  Motor control instance with identified motor parameters.
+ * @param[in] bandwidth_divider  ω_c = 2π·pwm_freq / divider (default 20).
+ * @param[in] speed_ratio  ω_s = ω_c / ratio (default 10).
+ * @retval MC_STATUS_OK  All PI gains computed and applied.
+ * @retval MC_STATUS_INVALID_ARG  inst==NULL or motor parameters invalid.
+ * @par Sync/Async  Synchronous.
+ * @par Reentrancy  Not reentrant for concurrent writes to the same inst.
+ */
+mc_status_t mc_auto_tune_pi(mc_instance_t *inst,
+                             mc_f32_t bandwidth_divider,
+                             mc_f32_t speed_ratio);
+
 #endif /* MC_API_H */
