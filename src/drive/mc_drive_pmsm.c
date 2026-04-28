@@ -446,6 +446,31 @@ mc_status_t mc_pmsm_foc_run(mc_pmsm_foc_t *foc, const mc_pmsm_foc_input_t *in, m
     out->v_dq.d = mc_pi_run(&foc->id_pi, id_error, in->dt_s);
     out->v_dq.q = mc_pi_run(&foc->iq_pi, iq_error, in->dt_s);
 
+    /* --- dead-time compensation --- */
+    if ((foc->cfg.dtc_enable != MC_FALSE) && (foc->cfg.dtc_deadtime_ns > 0.0F))
+    {
+        mc_f32_t vdead;
+        mc_f32_t bus_v;
+
+        bus_v = in->bus_voltage_v;
+        if (bus_v < foc->cfg.bus_voltage_min)
+        {
+            bus_v = foc->cfg.bus_voltage_min;
+        }
+        if (bus_v < MC_EPSILON_F)
+        {
+            bus_v = 1.0F;
+        }
+
+        /* Vdead ≈ (deadtime_ns / (0.5/f_pwm)) * Vbus * 2/3 */
+        mc_f32_t dtc_freq;
+        dtc_freq = (foc->cfg.pwm_freq_hz > 0.0F) ? foc->cfg.pwm_freq_hz : 20000.0F;
+        vdead = foc->cfg.dtc_deadtime_ns * 2e-9F * dtc_freq * bus_v * 0.6666667F;
+
+        out->v_dq.d += vdead * ((out->i_dq.d >= 0.0F) ? 1.0F : -1.0F);
+        out->v_dq.q += vdead * ((out->i_dq.q >= 0.0F) ? 1.0F : -1.0F);
+    }
+
     mc_pmsm_limit_voltage(foc, &out->v_dq);
 
     mc_ipark_run(&out->v_dq, in->sin_theta, in->cos_theta, &out->v_ab);

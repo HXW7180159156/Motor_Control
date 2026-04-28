@@ -205,6 +205,10 @@ void test_mc_auto_tune_current_pi_aggressive_divider_produces_higher_gains(void)
 void test_mc_auto_tune_speed_pi_produces_positive_gains(void);
 void test_mc_auto_tune_speed_pi_rejects_null(void);
 void test_mc_auto_tune_speed_pi_rejects_zero_ld(void);
+void test_mc_dtc_disabled_does_not_affect_voltage(void);
+void test_mc_dtc_enabled_produces_nonzero_compensation(void);
+void test_mc_dtc_higher_deadtime_produces_larger_compensation(void);
+void test_mc_dtc_config_propagated_to_foc_cfg(void);
 
 void test_mc_diag_1shunt_comp_mode_name_none(void);
 void test_mc_diag_1shunt_comp_mode_name_predict_basic(void);
@@ -1449,6 +1453,10 @@ int main(void)
     RUN_TEST(test_mc_auto_tune_speed_pi_produces_positive_gains);
     RUN_TEST(test_mc_auto_tune_speed_pi_rejects_null);
     RUN_TEST(test_mc_auto_tune_speed_pi_rejects_zero_ld);
+    RUN_TEST(test_mc_dtc_disabled_does_not_affect_voltage);
+    RUN_TEST(test_mc_dtc_enabled_produces_nonzero_compensation);
+    RUN_TEST(test_mc_dtc_higher_deadtime_produces_larger_compensation);
+    RUN_TEST(test_mc_dtc_config_propagated_to_foc_cfg);
     RUN_TEST(test_mc_diag_1shunt_comp_mode_name_returns_readable_strings);
     RUN_TEST(test_mc_diag_1shunt_comp_mode_name_none);
     RUN_TEST(test_mc_diag_1shunt_comp_mode_name_predict_basic);

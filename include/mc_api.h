@@ -98,6 +98,8 @@ typedef struct
     mc_f32_t fw_ki;                     /**< Field weakening integral gain */
     mc_f32_t fw_min_id;                 /**< Minimum d-axis current in field weakening */
     mc_f32_t fw_activation_ratio;       /**< Field weakening activation voltage ratio */
+    mc_bool_t dtc_enable;               /**< Enable inverter dead-time compensation */
+    mc_f32_t dtc_deadtime_ns;           /**< Inverter dead-time in nanoseconds */
 } mc_foc_cfg_t;
 
 /**

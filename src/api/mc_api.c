@@ -303,6 +303,9 @@ static mc_status_t mc_api_init_foc(mc_instance_t *inst)
     foc_cfg.fw_ki = inst->cfg.foc.fw_ki;
     foc_cfg.fw_min_id = inst->cfg.foc.fw_min_id;
     foc_cfg.fw_activation_ratio = inst->cfg.foc.fw_activation_ratio;
+    foc_cfg.dtc_enable = inst->cfg.foc.dtc_enable;
+    foc_cfg.dtc_deadtime_ns = inst->cfg.foc.dtc_deadtime_ns;
+    foc_cfg.pwm_freq_hz = (mc_f32_t)inst->cfg.control.pwm_frequency_hz;
 
     status = mc_control_foc_init(&inst->foc, &foc_cfg);
     if (status != MC_STATUS_OK)

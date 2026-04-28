@@ -83,6 +83,9 @@ typedef struct
     mc_f32_t fw_ki;                    /**< Field weakening PI integral gain */
     mc_f32_t fw_min_id;                /**< Minimum allowable d-axis current in field weakening (A) */
     mc_f32_t fw_activation_ratio;      /**< Voltage ratio threshold to activate field weakening [0-1] */
+    mc_bool_t dtc_enable;               /**< Enable dead-time compensation */
+    mc_f32_t dtc_deadtime_ns;           /**< Inverter dead-time in nanoseconds */
+    mc_f32_t pwm_freq_hz;               /**< PWM switching frequency [Hz] (for DTC calculation) */
 } mc_pmsm_foc_cfg_t;
 
 /**
