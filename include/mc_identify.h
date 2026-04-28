@@ -95,6 +95,7 @@ typedef struct
     mc_f32_t flux_wb; /**< Identified motor flux [Wb]. */
     mc_f32_t flux_candidate_wb; /**< Internal raw averaged flux estimate before trust gating [Wb]. */
     mc_f32_t flux_acc; /**< Time-integrated valid flux estimate accumulation [Wb*s]. */
+    mc_f32_t flux_sq_acc; /**< Time-integrated squared valid flux for consistency check [Wb²*s]. */
     mc_f32_t flux_time_acc_s; /**< Accumulated duration of valid flux estimate samples [s]. */
     uint32_t flux_sample_count; /**< Number of valid flux estimate samples accumulated. */
 } mc_identify_t;

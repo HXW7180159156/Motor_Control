@@ -23,6 +23,7 @@ static void mc_identify_set_state(mc_identify_t *id, mc_identify_state_t state)
     id->i_alpha_window_acc = 0.0F;
     id->i_beta_window_acc = 0.0F;
     id->pulse_time_acc_s = 0.0F;
+    id->flux_sq_acc = 0.0F;
 }
 
 /**
@@ -37,17 +38,35 @@ static void mc_identify_reset_flux_window(mc_identify_t *id)
     }
 
     id->flux_acc = 0.0F;
+    id->flux_sq_acc = 0.0F;
     id->flux_time_acc_s = 0.0F;
     id->flux_sample_count = 0U;
 }
 
 /**
  * @brief Finalize the averaged flux estimate if valid samples were collected
+ *
+ * Guards applied before trusting the estimate:
+ * 1. At least MC_IDENTIFY_MIN_FLUX_SAMPLES individual samples must be collected.
+ * 2. The accumulated valid-sample time must cover a minimum fraction of the
+ *    configured pulse window (MC_IDENTIFY_MIN_VALID_FLUX_WINDOW_RATIO).
+ * 3. The coefficient of variation (stddev / mean) across valid samples must
+ *    not exceed MC_IDENTIFY_MAX_FLUX_CV, rejecting noisy or oscillatory
+ *    estimates that could bias the runtime model.
+ *
+ * Production improvement: the open-loop voltage-balance method assumes
+ * ideal inverter output. A production-grade implementation should compensate
+ * for inverter dead-time and IGBT/MOSFET voltage drop:
+ *   vq_effective = vq_command - sign(iq) * (deadtime * vdc / t_pwm + v_igbt)
+ * This correction is not yet applied; see DEVIATION_RECORD.md DEV-D02.
+ *
  * @param id Identification instance
  */
 static void mc_identify_finalize_flux_estimate(mc_identify_t *id)
 {
     mc_f32_t flux_avg;
+    mc_f32_t flux_var;
+    mc_f32_t flux_cv;
     mc_f32_t min_valid_flux_time_s;
 
     if ((id == NULL) || (id->flux_sample_count == 0U) || (id->flux_time_acc_s <= 0.0F))
@@ -62,10 +81,31 @@ static void mc_identify_finalize_flux_estimate(mc_identify_t *id)
     }
 
     id->flux_candidate_wb = flux_avg;
+
+    if (id->flux_sample_count < MC_IDENTIFY_MIN_FLUX_SAMPLES)
+    {
+        return;
+    }
+
     min_valid_flux_time_s = MC_IDENTIFY_MIN_VALID_FLUX_WINDOW_RATIO * id->cfg.lq_pulse_time_s;
     if (id->flux_time_acc_s < min_valid_flux_time_s)
     {
         return;
+    }
+
+    flux_var = (id->flux_sq_acc / id->flux_time_acc_s) - (flux_avg * flux_avg);
+    if (flux_var < 0.0F)
+    {
+        flux_var = 0.0F;
+    }
+
+    if (flux_avg > MC_EPSILON_FLUX)
+    {
+        flux_cv = sqrtf(flux_var) / flux_avg;
+        if (flux_cv > MC_IDENTIFY_MAX_FLUX_CV)
+        {
+            return;
+        }
     }
 
     id->flux_wb = flux_avg;
@@ -169,6 +209,7 @@ static void mc_identify_update_flux_estimate(mc_identify_t *id, mc_f32_t i_beta,
     if (isfinite(flux_estimate) && (flux_estimate > MC_IDENTIFY_MIN_FLUX_SAMPLE_WB))
     {
         id->flux_acc += flux_estimate * dt_s;
+        id->flux_sq_acc += (flux_estimate * flux_estimate) * dt_s;
         id->flux_time_acc_s += dt_s;
         id->flux_sample_count++;
     }

@@ -134,6 +134,10 @@
 #define MC_IDENTIFY_MIN_FLUX_SAMPLE_WB (1e-6F)
 /** @brief Minimum valid flux window duration ratio */
 #define MC_IDENTIFY_MIN_VALID_FLUX_WINDOW_RATIO (0.75F)
+/** @brief Minimum number of individual flux samples required for trust gating */
+#define MC_IDENTIFY_MIN_FLUX_SAMPLES (10U)
+/** @brief Maximum allowed coefficient of variation for flux estimate (CV = stddev/mean) */
+#define MC_IDENTIFY_MAX_FLUX_CV (0.3F)
 /** @brief Default align time [s] */
 #define MC_IDENTIFY_DEFAULT_ALIGN_TIME_S (0.05F)
 /** @brief Default RS settle time [s] */

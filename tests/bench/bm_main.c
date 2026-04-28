@@ -1,6 +1,8 @@
 #include "unity.h"
 
 void test_bench_fast_step_pmsm_foc_2shunt(void);
+void test_bench_medium_step_encoder(void);
+void test_bench_slow_step_diagnostics(void);
 void test_bench_clarke_throughput(void);
 void test_bench_park_throughput(void);
 void test_bench_svpwm_throughput(void);
@@ -15,6 +17,8 @@ int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_bench_fast_step_pmsm_foc_2shunt);
+    RUN_TEST(test_bench_medium_step_encoder);
+    RUN_TEST(test_bench_slow_step_diagnostics);
     RUN_TEST(test_bench_clarke_throughput);
     RUN_TEST(test_bench_park_throughput);
     RUN_TEST(test_bench_svpwm_throughput);
