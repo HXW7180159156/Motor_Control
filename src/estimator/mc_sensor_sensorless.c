@@ -1,16 +1,10 @@
 /** @file mc_sensor_sensorless.c @brief Sensorless observer (BEMF + PLL) implementation */
 
+#include "mc_constants.h"
 #include "mc_sensor_sensorless.h"
 #include "mc_math.h"
 
 #include <math.h>
-
-#define MC_SENSORLESS_OPEN_LOOP_LOCK_SAMPLES (2U)
-#define MC_SENSORLESS_PLL_LOCK_SAMPLES (2U)
-#define MC_SENSORLESS_PLL_UNLOCK_SAMPLES (2U)
-#define MC_SENSORLESS_COUNTER_MAX (255U)
-#define MC_SENSORLESS_OPEN_LOOP_HANDOFF_ANGLE_ERR_RAD (0.5F)
-#define MC_SENSORLESS_PLL_LOCK_ANGLE_ERR_RAD (0.35F)
 
 /**
  * @brief Initialise sensorless observer state with configuration
@@ -88,6 +82,15 @@ mc_status_t mc_sensorless_update(mc_sensorless_state_t *state,
     raw_bemf.alpha = voltage_ab->alpha - (state->cfg.rs_ohm * current_ab->alpha) - (state->cfg.ls_h * di_dt_ab.alpha);
     raw_bemf.beta = voltage_ab->beta - (state->cfg.rs_ohm * current_ab->beta) - (state->cfg.ls_h * di_dt_ab.beta);
 
+    if ((!isfinite(raw_bemf.alpha)) || (!isfinite(raw_bemf.beta)))
+    {
+        state->observer_valid = MC_FALSE;
+        state->pll_locked = MC_FALSE;
+        state->last_current_ab = *current_ab;
+        state->last_timestamp_us = timestamp_us;
+        return MC_STATUS_OK;
+    }
+
     state->bemf_ab.alpha = mc_math_lpf_f32(state->bemf_ab.alpha, raw_bemf.alpha, state->cfg.bemf_filter_alpha);
     state->bemf_ab.beta = mc_math_lpf_f32(state->bemf_ab.beta, raw_bemf.beta, state->cfg.bemf_filter_alpha);
     state->bemf_magnitude = sqrtf((state->bemf_ab.alpha * state->bemf_ab.alpha) +
@@ -112,7 +115,7 @@ mc_status_t mc_sensorless_update(mc_sensorless_state_t *state,
     }
 
     state->observer_valid = MC_TRUE;
-    measured_angle_rad = mc_math_wrap_angle_rad(atan2f(state->bemf_ab.beta, state->bemf_ab.alpha) - 1.5707963268F);
+    measured_angle_rad = mc_math_wrap_angle_rad(atan2f(state->bemf_ab.beta, state->bemf_ab.alpha) - MC_PI_OVER_2);
     angle_error = mc_math_wrap_angle_rad(measured_angle_rad - state->elec_angle_rad);
     state->pll_integrator += state->cfg.pll_ki * angle_error * dt_s;
     if (state->open_loop_active != MC_FALSE)
@@ -171,7 +174,7 @@ mc_status_t mc_sensorless_update(mc_sensorless_state_t *state,
         }
     }
 
-    state->mech_speed_rpm = (state->pll_speed_rad_s * 9.5492965855F) / state->cfg.pole_pairs;
+    state->mech_speed_rpm = (state->pll_speed_rad_s * MC_RAD_S_TO_RPM) / state->cfg.pole_pairs;
     state->last_current_ab = *current_ab;
     state->last_timestamp_us = timestamp_us;
 

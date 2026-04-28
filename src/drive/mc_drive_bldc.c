@@ -1,29 +1,8 @@
 /** @file mc_drive_bldc.c @brief BLDC motor drive implementation using Hall sensor feedback */
 
+#include "mc_constants.h"
 #include "mc_drive_bldc.h"
-
-/**
- * @brief Clamp a value within a specified range
- * @param value Input value to clamp
- * @param min_value Minimum allowable value
- * @param max_value Maximum allowable value
- * @return Clamped value within [min_value, max_value]
- */
-static mc_f32_t mc_bldc_clamp(mc_f32_t value, mc_f32_t min_value, mc_f32_t max_value)
-{
-    mc_f32_t result = value;
-
-    if (result < min_value)
-    {
-        result = min_value;
-    }
-    else if (result > max_value)
-    {
-        result = max_value;
-    }
-
-    return result;
-}
+#include "mc_math.h"
 
 /**
  * @brief Apply BLDC commutation based on Hall sensor code
@@ -137,7 +116,7 @@ mc_status_t mc_bldc_hall_run(mc_bldc_hall_t *drive, uint8_t hall_code, mc_f32_t 
         return MC_STATUS_INVALID_ARG;
     }
 
-    clamped_duty = mc_bldc_clamp(duty_cmd, drive->cfg.duty_min, drive->cfg.duty_max);
+    clamped_duty = mc_math_clamp_f32(duty_cmd, drive->cfg.duty_min, drive->cfg.duty_max);
     status = mc_bldc_apply_commutation(hall_code, clamped_duty, pwm_cmd);
     if (status != MC_STATUS_OK)
     {

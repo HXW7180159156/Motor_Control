@@ -1,5 +1,6 @@
 /** @file mc_sensor_hall.c @brief Hall effect sensor interface */
 
+#include "mc_constants.h"
 #include "mc_sensor_hall.h"
 
 /**
@@ -18,7 +19,7 @@ static mc_status_t mc_hall_find_index(const mc_hall_cfg_t *cfg, uint8_t hall_cod
         return MC_STATUS_INVALID_ARG;
     }
 
-    for (idx = 0U; idx < 6U; ++idx)
+    for (idx = 0U; idx < MC_HALL_STEPS; ++idx)
     {
         if (cfg->hall_code_sequence[idx] == hall_code)
         {
@@ -78,9 +79,9 @@ mc_status_t mc_hall_update(mc_hall_state_t *state, uint8_t hall_code, uint32_t t
     if ((state->last_transition_us != 0U) && (timestamp_us > state->last_transition_us) && (hall_code != state->last_hall_code))
     {
         mc_f32_t delta_us = (mc_f32_t)(timestamp_us - state->last_transition_us);
-        mc_f32_t elec_rev_per_sec = 1000000.0F / (delta_us * 6.0F);
+        mc_f32_t elec_rev_per_sec = MC_US_PER_SEC / (delta_us * (mc_f32_t)MC_HALL_STEPS);
         mc_f32_t mech_rev_per_sec = elec_rev_per_sec / pole_pairs;
-        state->mech_speed_rpm = mech_rev_per_sec * 60.0F;
+        state->mech_speed_rpm = mech_rev_per_sec * MC_SEC_PER_MIN;
     }
 
     if (hall_code != state->last_hall_code)

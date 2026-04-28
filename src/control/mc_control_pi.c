@@ -3,31 +3,9 @@
  * @brief PI (Proportional-Integral) controller implementation
  */
 
+#include "mc_constants.h"
 #include "mc_control_pi.h"
 #include "mc_math.h"
-
-/**
- * @brief Clamp a value between minimum and maximum bounds
- * @param value Input value to clamp
- * @param min_value Lower bound
- * @param max_value Upper bound
- * @return Clamped value within [min_value, max_value]
- */
-static mc_f32_t mc_pi_clamp(mc_f32_t value, mc_f32_t min_value, mc_f32_t max_value)
-{
-    mc_f32_t result = value;
-
-    if (result < min_value)
-    {
-        result = min_value;
-    }
-    else if (result > max_value)
-    {
-        result = max_value;
-    }
-
-    return result;
-}
 
 /**
  * @brief Clamp a Q31 value between minimum and maximum bounds
@@ -91,11 +69,11 @@ mc_f32_t mc_pi_run(mc_pi_t *pi, mc_f32_t error, mc_f32_t dt_s)
     }
 
     pi->integral += error * pi->cfg.ki * dt_s;
-    pi->integral = mc_pi_clamp(pi->integral, pi->cfg.integral_min, pi->cfg.integral_max);
+    pi->integral = mc_math_clamp_f32(pi->integral, pi->cfg.integral_min, pi->cfg.integral_max);
 
     proportional = error * pi->cfg.kp;
     output = proportional + pi->integral;
-    output = mc_pi_clamp(output, pi->cfg.output_min, pi->cfg.output_max);
+    output = mc_math_clamp_f32(output, pi->cfg.output_min, pi->cfg.output_max);
 
     pi->output = output;
     return output;

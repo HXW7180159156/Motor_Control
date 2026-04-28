@@ -2,6 +2,7 @@
  * @file mc_identify.c
  * @brief Motor parameter identification implementation
  */
+#include "mc_constants.h"
 #include "mc_identify.h"
 #include "mc_math.h"
 #include "mc_transform.h"
@@ -23,12 +24,6 @@ static void mc_identify_set_state(mc_identify_t *id, mc_identify_state_t state)
     id->i_beta_window_acc = 0.0F;
     id->pulse_time_acc_s = 0.0F;
 }
-
-/** @brief Minimum positive flux estimate accepted as a valid sample [Wb]. */
-#define MC_IDENTIFY_MIN_FLUX_SAMPLE_WB (1e-6F)
-
-/** @brief Minimum valid flux window duration ratio required before updating the seeded flux estimate. */
-#define MC_IDENTIFY_MIN_VALID_FLUX_WINDOW_RATIO (0.75F)
 
 /**
  * @brief Reset the flux estimate accumulation window
@@ -117,7 +112,7 @@ static mc_f32_t mc_identify_compute_inductance_estimate(const mc_identify_t *id,
     }
 
     delta_i = current_end - current_start;
-    if (fabsf(delta_i) <= 1e-8F)
+    if (fabsf(delta_i) <= MC_EPSILON_F)
     {
         return 0.0F;
     }
@@ -163,7 +158,7 @@ static void mc_identify_update_flux_estimate(mc_identify_t *id, mc_f32_t i_beta,
     }
 
     di_beta_dt = (i_beta - id->i_beta_prev) / dt_s;
-    omega_elec = 1.5707963268F / id->cfg.lq_align_time_s;
+    omega_elec = MC_PI_OVER_2 / id->cfg.lq_align_time_s;
     if (omega_elec <= 0.0F)
     {
         return;
@@ -225,17 +220,17 @@ void mc_identify_init(mc_identify_t *id, const mc_identify_cfg_t *cfg)
     *id = (mc_identify_t){0};
     id->cfg = *cfg;
 
-    if (id->cfg.align_time_s <= 0.0F) id->cfg.align_time_s = 0.05F;
-    if (id->cfg.rs_settle_time_s <= 0.0F) id->cfg.rs_settle_time_s = 0.01F;
-    if (id->cfg.rs_sample_time_s <= 0.0F) id->cfg.rs_sample_time_s = 0.005F;
-    if (id->cfg.ld_pulse_time_s <= 0.0F) id->cfg.ld_pulse_time_s = 0.002F;
-    if (id->cfg.lq_align_time_s <= 0.0F) id->cfg.lq_align_time_s = 0.1F;
-    if (id->cfg.lq_pulse_time_s <= 0.0F) id->cfg.lq_pulse_time_s = 0.002F;
-    if (id->cfg.align_voltage <= 0.0F) id->cfg.align_voltage = 0.1F;
-    if (id->cfg.rs_voltage <= 0.0F) id->cfg.rs_voltage = 0.15F;
-    if (id->cfg.pulse_voltage <= 0.0F) id->cfg.pulse_voltage = 0.3F;
-    if (id->cfg.max_current_a <= 0.0F) id->cfg.max_current_a = 1.0F;
-    if (id->cfg.voltage_limit <= 0.0F) id->cfg.voltage_limit = 1.0F;
+    if (id->cfg.align_time_s <= 0.0F) id->cfg.align_time_s = MC_IDENTIFY_DEFAULT_ALIGN_TIME_S;
+    if (id->cfg.rs_settle_time_s <= 0.0F) id->cfg.rs_settle_time_s = MC_IDENTIFY_DEFAULT_RS_SETTLE_TIME_S;
+    if (id->cfg.rs_sample_time_s <= 0.0F) id->cfg.rs_sample_time_s = MC_IDENTIFY_DEFAULT_RS_SAMPLE_TIME_S;
+    if (id->cfg.ld_pulse_time_s <= 0.0F) id->cfg.ld_pulse_time_s = MC_IDENTIFY_DEFAULT_PULSE_TIME_S;
+    if (id->cfg.lq_align_time_s <= 0.0F) id->cfg.lq_align_time_s = MC_IDENTIFY_DEFAULT_LQ_ALIGN_TIME_S;
+    if (id->cfg.lq_pulse_time_s <= 0.0F) id->cfg.lq_pulse_time_s = MC_IDENTIFY_DEFAULT_PULSE_TIME_S;
+    if (id->cfg.align_voltage <= 0.0F) id->cfg.align_voltage = MC_IDENTIFY_DEFAULT_ALIGN_VOLTAGE;
+    if (id->cfg.rs_voltage <= 0.0F) id->cfg.rs_voltage = MC_IDENTIFY_DEFAULT_RS_VOLTAGE;
+    if (id->cfg.pulse_voltage <= 0.0F) id->cfg.pulse_voltage = MC_IDENTIFY_DEFAULT_PULSE_VOLTAGE;
+    if (id->cfg.max_current_a <= 0.0F) id->cfg.max_current_a = MC_IDENTIFY_DEFAULT_MAX_CURRENT_A;
+    if (id->cfg.voltage_limit <= 0.0F) id->cfg.voltage_limit = MC_IDENTIFY_DEFAULT_VOLTAGE_LIMIT;
 }
 
 /**
@@ -395,7 +390,7 @@ mc_status_t mc_identify_run(mc_identify_t *id, const mc_identify_input_t *in, mc
             if (id->sample_count > 0U)
             {
                 mc_f32_t id_avg = id->id_acc / (mc_f32_t)id->sample_count;
-                mc_f32_t rs_estimate = (fabsf(id_avg) > 1e-6F) ? (id->cfg.rs_voltage * id->cfg.voltage_limit) / id_avg : 0.0F;
+                mc_f32_t rs_estimate = (fabsf(id_avg) > MC_EPSILON_F) ? (id->cfg.rs_voltage * id->cfg.voltage_limit) / id_avg : 0.0F;
 
                 id->rs_candidate_ohm = rs_estimate;
                 id->rs_ohm = mc_identify_positive_estimate_or_zero(rs_estimate);

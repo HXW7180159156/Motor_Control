@@ -1,5 +1,6 @@
 /** @file mc_drive_pmsm.c @brief PMSM field-oriented control (FOC) drive implementation */
 
+#include "mc_constants.h"
 #include "mc_drive_pmsm.h"
 
 #include <math.h>
@@ -102,20 +103,20 @@ static void mc_pmsm_predict_1shunt_current(const mc_pmsm_foc_t *foc,
     inv_lq = 1.0F / lq_h;
     omega_elec = in->elec_speed_rad_s;
     modulation_index = sqrtf((foc->v_dq.d * foc->v_dq.d) + (foc->v_dq.q * foc->v_dq.q));
-    prediction_weight = 1.0F;
-    delta_limit = 0.5F;
+    prediction_weight = MC_1SHUNT_PREDICT_WEIGHT_DEFAULT;
+    delta_limit = MC_1SHUNT_DELTA_LIMIT_DEFAULT;
 
-    if (modulation_index > (0.8F * foc->cfg.voltage_limit))
+    if (modulation_index > (MC_1SHUNT_HIGH_MODULATION_RATIO * foc->cfg.voltage_limit))
     {
-        prediction_weight = 0.6F;
-        delta_limit = 0.25F;
+        prediction_weight = MC_1SHUNT_PREDICT_WEIGHT_HIGH_MOD;
+        delta_limit = MC_1SHUNT_DELTA_LIMIT_HIGH_MOD;
         comp_status->mode = MC_1SHUNT_COMP_PREDICT_HIGH_MODULATION;
     }
 
-    if (in->id_ref < -0.1F)
+    if (in->id_ref < MC_1SHUNT_FW_ID_THRESHOLD)
     {
-        prediction_weight *= 0.7F;
-        delta_limit = 0.15F;
+        prediction_weight *= MC_1SHUNT_PREDICT_FW_WEIGHT_MULT;
+        delta_limit = MC_1SHUNT_DELTA_LIMIT_FW;
         comp_status->mode = MC_1SHUNT_COMP_PREDICT_FIELD_WEAKENING;
     }
 
@@ -148,8 +149,8 @@ static void mc_pmsm_predict_1shunt_current(const mc_pmsm_foc_t *foc,
     mc_ipark_run(&predicted_i_dq, in->sin_theta, in->cos_theta, &predicted_i_ab);
 
     i_abc->a = predicted_i_ab.alpha;
-    i_abc->b = (-0.5F * predicted_i_ab.alpha) + (0.8660254038F * predicted_i_ab.beta);
-    i_abc->c = (-0.5F * predicted_i_ab.alpha) - (0.8660254038F * predicted_i_ab.beta);
+    i_abc->b = (-MC_1SHUNT_HALF * predicted_i_ab.alpha) + (MC_SQRT3_OVER_2 * predicted_i_ab.beta);
+    i_abc->c = (-MC_1SHUNT_HALF * predicted_i_ab.alpha) - (MC_SQRT3_OVER_2 * predicted_i_ab.beta);
 }
 
 /**
@@ -210,7 +211,7 @@ static void mc_pmsm_optimize_1shunt_pwm(mc_pmsm_foc_t *foc, mc_pwm_cmd_t *pwm_cm
         return;
     }
 
-    shift = (foc->shunt1_meta.reorder_required != MC_FALSE) ? 0.04F : 0.02F;
+    shift = (foc->shunt1_meta.reorder_required != MC_FALSE) ? MC_1SHUNT_SHIFT_REORDER : MC_1SHUNT_SHIFT_NORMAL;
     pwm_cmd->common_mode_shift = (foc->shunt1_meta.zero_vector_bias_high != MC_FALSE) ? shift : -shift;
 
     if (foc->shunt1_meta.reorder_required != MC_FALSE)
@@ -450,9 +451,9 @@ mc_status_t mc_pmsm_foc_run(mc_pmsm_foc_t *foc, const mc_pmsm_foc_input_t *in, m
     mc_ipark_run(&out->v_dq, in->sin_theta, in->cos_theta, &out->v_ab);
     mc_pmsm_normalize_voltage(foc, in, &out->v_ab);
     mc_pmsm_plan_1shunt_from_voltage(foc, &out->v_ab, &out->pwm_cmd);
-    mc_pmsm_optimize_1shunt_pwm(foc, &out->pwm_cmd);
+    mc_pmsm_optimize_1shunt_pwm(foc, &out->pwm_cmd);  /* first pass: apply 1shunt bias using voltage preview */
     mc_svpwm_run(&out->v_ab, &foc->cfg.svpwm_cfg, &out->pwm_cmd);
-    mc_pmsm_optimize_1shunt_pwm(foc, &out->pwm_cmd);
+    mc_pmsm_optimize_1shunt_pwm(foc, &out->pwm_cmd);  /* second pass: re-apply after svpwm_run recalculates sector/duties */
     mc_pmsm_plan_1shunt_adc_trigger(foc, &foc->shunt1_meta, &out->adc_trigger_plan);
 
     foc->i_dq = out->i_dq;

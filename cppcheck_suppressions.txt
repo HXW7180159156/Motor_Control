@@ -1,0 +1,17 @@
+# Cppcheck suppression file for motor_control
+# MISRA C:2012 deviations are recorded in docs/safety/DEVIATION_RECORD.md
+
+# C99 compound literals used for struct zero-initialization (platform-portable pattern)
+*:compoundLiteral:*:*
+
+# GCC/Clang attributes used for alignment, packing, unused (platform required)
+*:gccAttribute:*:*
+
+# MISRA Rule 13.4: float comparisons with 0.0F used in config validation (see deviation record)
+*:*:misra-c2012-13.4
+
+# MISRA Rule 19.2: union used for type-punning in sensor data (platform-optimized)
+*:*:misra-c2012-19.2
+
+# MISRA Rule 20.4: macro name collision with reserved identifies is false positive
+*:*:misra-c2012-20.4

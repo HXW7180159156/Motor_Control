@@ -1,0 +1,11 @@
+{
+  "addon": "misra",
+  "suppressionsList": "cppcheck_suppressions.txt",
+  "enable": "warning,style,performance,portability",
+  "std": "c99",
+  "platform": "unix32",
+  "language": "c",
+  "checkersReport": "cppcheck_report.txt",
+  "includes": ["include", "src"],
+  "define": ["MC_CFG_BUILD_M1=1"]
+}

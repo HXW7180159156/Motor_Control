@@ -9,6 +9,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
 option(MC_BUILD_TESTS "Build unit tests" ON)
+option(MC_RUN_CPPCHECK "Run cppcheck static analysis" ON)
 
 add_library(motor_control STATIC
     src/api/mc_api.c
@@ -88,4 +89,21 @@ if(MC_BUILD_TESTS)
     target_link_libraries(test_mc_api PRIVATE motor_control)
 
     add_test(NAME test_mc_api COMMAND test_mc_api)
+endif()
+
+if(MC_RUN_CPPCHECK)
+    find_program(CPPCHECK_EXECUTABLE cppcheck REQUIRED)
+    add_custom_target(cppcheck
+        COMMAND ${CPPCHECK_EXECUTABLE}
+            --enable=warning,style,performance,portability
+            --std=c99
+            --suppress=*:${CMAKE_CURRENT_SOURCE_DIR}/tests/*
+            --suppressions-list=${CMAKE_CURRENT_SOURCE_DIR}/cppcheck_suppressions.txt
+            --error-exitcode=0
+            -I${CMAKE_CURRENT_SOURCE_DIR}/include
+            -DMC_CFG_BUILD_M1=1
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+        COMMENT "Running cppcheck static analysis"
+        VERBATIM
+    )
 endif()

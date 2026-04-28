@@ -4,6 +4,7 @@
  */
 
 #include "mc_math.h"
+#include "mc_constants.h"
 
 #include <limits.h>
 
@@ -67,7 +68,7 @@ mc_q31_t mc_q31_from_f32(mc_f32_t value)
         return INT32_MAX;
     }
 
-    return (mc_q31_t)(clamped * 2147483648.0F);
+    return (mc_q31_t)(clamped * MC_Q31_SCALE);
 }
 
 /**
@@ -77,7 +78,7 @@ mc_q31_t mc_q31_from_f32(mc_f32_t value)
  */
 mc_f32_t mc_q31_to_f32(mc_q31_t value)
 {
-    return ((mc_f32_t)value) / 2147483648.0F;
+    return ((mc_f32_t)value) / MC_Q31_SCALE;
 }
 
 /**
@@ -134,8 +135,8 @@ mc_q31_t mc_q31_mul(mc_q31_t a, mc_q31_t b)
 mc_f32_t mc_math_wrap_angle_rad(mc_f32_t angle_rad)
 {
     mc_f32_t result = angle_rad;
-    const mc_f32_t two_pi = 6.2831853072F;
-    const mc_f32_t pi = 3.1415926536F;
+    const mc_f32_t two_pi = MC_TWO_PI;
+    const mc_f32_t pi = MC_PI;
 
     while (result > pi)
     {

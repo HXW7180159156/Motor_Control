@@ -1,5 +1,6 @@
 /** @file mc_sensor_resolver.c @brief Resolver sensor interface */
 
+#include "mc_constants.h"
 #include "mc_sensor_resolver.h"
 #include "mc_math.h"
 
@@ -79,8 +80,8 @@ mc_status_t mc_resolver_update(mc_resolver_state_t *state, const mc_resolver_raw
         {
             mc_f32_t delta_us = (mc_f32_t)(timestamp_us - state->last_timestamp_us);
             mc_f32_t delta_mech_angle = mc_math_wrap_angle_rad(mech_angle_rad - state->last_mech_angle_rad);
-            mc_f32_t mech_rev_per_sec = delta_mech_angle / 6.2831853072F;
-            state->mech_speed_rpm = (mech_rev_per_sec * 1000000.0F * 60.0F) / delta_us;
+            mc_f32_t mech_rev_per_sec = delta_mech_angle / MC_TWO_PI;
+            state->mech_speed_rpm = (mech_rev_per_sec * MC_US_PER_SEC * MC_SEC_PER_MIN) / delta_us;
         }
 
         state->last_mech_angle_rad = mech_angle_rad;

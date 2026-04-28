@@ -4,16 +4,20 @@
 
 ### Added / 新增
 
-- FW (field weakening) kp term wiring: proportional term now acts on current-cycle voltage magnitude error before PI integration (`src/drive/mc_drive_pmsm.c`)
-- ADC calibration function: `mc_adc_calibrate_linear` two-point calibration (`src/api/mc_adc_calibrate.c`, `include/mc_port_adc.h`)
-- 2-shunt / 3-shunt ADC trigger plan: default single trigger at PWM midpoint (position=0.5, event=PWM_DOWN) in `mc_pmsm_foc_run`
-- Doxygen comments on public headers: `mc_api.h`, `mc_drive_pmsm.h`, `mc_reconstruct_1shunt.h`, `mc_diag.h`
+- `mc_constants.h`: named constants for all math, Q31, 1-shunt, sensorless, identify, BLDC defaults and thresholds (MISRA C:2012 Dir 4.14)
+- `docs/process/DEVELOPMENT_PLAN.md`: phased development roadmap through M1/M2/M3
+- `cppcheck.json` / `cppcheck_suppressions.txt`: MISRA static analysis configuration
+- CMake `cppcheck` custom target for automated static analysis (`MC_RUN_CPPCHECK` option)
+- `isfinite()` NaN/Inf guard in PMSM sensorless observer BEMF calculation
+- Documented rationale for second `mc_pmsm_optimize_1shunt_pwm` call in PMSM FOC run
 
 ### Changed / 修改
 
-- Redesigned FW calculation order: fw_kp proportional term computed before PI integration, using last-cycle limited Vdq (`foc->v_dq`)
-- Updated SDD documents: `SDD_control.md` (MTPA/FW/1shunt compensation), `SDD_drive.md` (current sense/ADC trigger), `SDD_platform.md` (ADC calibration), `ICD.md` (all new interfaces)
-- Updated 3SHUNT ADC trigger plan assertions in `test_mc_api.c` to match new default trigger behavior
+- Consolidated 5 duplicate `clamp` implementations into single `mc_math_clamp_f32` across all modules
+- Replaced 40+ magic numbers with named constants from `mc_constants.h` across all source files
+- `mc_platform_compiler.h`: added `MC_INLINE`, `MC_RESTRICT`, `MC_ALIGN`, `MC_UNUSED`, `MC_STATIC_ASSERT` macros for multi-compiler portability
+- BLDC sensorless: added `MC_BLDC_SS_INVALID_STEP` sentinel constant instead of bare `0xFF`
+- Initialized `freq` and `duty` locals in `mc_bldc_sensorless_run` to suppress MSVC C4700
 
 ### Fixed / 修复
 

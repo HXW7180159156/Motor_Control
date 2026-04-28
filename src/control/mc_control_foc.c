@@ -3,34 +3,12 @@
  * @brief Field-Oriented Control (FOC) high-level controller
  */
 
+#include "mc_constants.h"
 #include "mc_control_foc.h"
-
-/**
- * @brief Clamp a value between minimum and maximum bounds
- * @param value Input value to clamp
- * @param min_value Lower bound
- * @param max_value Upper bound
- * @return Clamped value within [min_value, max_value]
- */
-static mc_f32_t mc_control_foc_clamp(mc_f32_t value, mc_f32_t min_value, mc_f32_t max_value)
-{
-    mc_f32_t result = value;
-
-    if (result < min_value)
-    {
-        result = min_value;
-    }
-    else if (result > max_value)
-    {
-        result = max_value;
-    }
-
-    return result;
-}
+#include "mc_math.h"
 
 /**
  * @brief Initialise FOC controller instance
- * @param control Pointer to FOC control structure
  * @param cfg Pointer to PMSM FOC configuration
  * @return MC_STATUS_OK on success, MC_STATUS_INVALID_ARG if inputs are NULL
  */
@@ -95,7 +73,7 @@ mc_status_t mc_control_foc_speed_step(mc_control_foc_t *control,
 
     if (control->iq_limit > 0.0F)
     {
-        iq_cmd = mc_control_foc_clamp(iq_cmd, -control->iq_limit, control->iq_limit);
+        iq_cmd = mc_math_clamp_f32(iq_cmd, -control->iq_limit, control->iq_limit);
     }
 
     *iq_ref = iq_cmd;

@@ -1,6 +1,7 @@
 /** @file mc_sensor_encoder.c @brief Quadrature encoder sensor interface */
 
 #include "mc_sensor_encoder.h"
+#include "mc_constants.h"
 #include "mc_math.h"
 
 /**
@@ -38,7 +39,7 @@ mc_status_t mc_encoder_update(mc_encoder_state_t *state, uint32_t encoder_count,
         return MC_STATUS_INVALID_ARG;
     }
 
-    mech_angle_rad = (((mc_f32_t)(encoder_count % state->cfg.counts_per_rev)) * 6.2831853072F) /
+    mech_angle_rad = (((mc_f32_t)(encoder_count % state->cfg.counts_per_rev)) * MC_TWO_PI) /
                      ((mc_f32_t)state->cfg.counts_per_rev);
     state->elec_angle_rad = mc_math_wrap_angle_rad(mech_angle_rad * state->cfg.pole_pairs);
 
@@ -46,9 +47,9 @@ mc_status_t mc_encoder_update(mc_encoder_state_t *state, uint32_t encoder_count,
     {
         int32_t delta_count = (int32_t)encoder_count - (int32_t)state->last_count;
         mc_f32_t delta_us = (mc_f32_t)(timestamp_us - state->last_timestamp_us);
-        mc_f32_t mech_rev_per_sec = (((mc_f32_t)delta_count) * 1000000.0F) /
+        mc_f32_t mech_rev_per_sec = (((mc_f32_t)delta_count) * MC_US_PER_SEC) /
                                     (((mc_f32_t)state->cfg.counts_per_rev) * delta_us);
-        state->mech_speed_rpm = mech_rev_per_sec * 60.0F;
+        state->mech_speed_rpm = mech_rev_per_sec * MC_SEC_PER_MIN;
     }
 
     state->last_count = encoder_count;

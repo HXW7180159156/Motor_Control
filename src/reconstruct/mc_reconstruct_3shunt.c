@@ -1,5 +1,6 @@
 /** @file mc_reconstruct_3shunt.c @brief 3-shunt phase current reconstruction */
 
+#include "mc_constants.h"
 #include "mc_reconstruct_3shunt.h"
 
 #include "mc_math.h"
@@ -39,9 +40,9 @@ void mc_reconstruct_3shunt_q31_run(const mc_adc_raw_t *raw, const mc_3shunt_q31_
         return;
     }
 
-    raw_a = mc_q31_from_f32((mc_f32_t)raw->phase_a_raw / 4095.0F);
-    raw_b = mc_q31_from_f32((mc_f32_t)raw->phase_b_raw / 4095.0F);
-    raw_c = mc_q31_from_f32((mc_f32_t)raw->phase_c_raw / 4095.0F);
+    raw_a = mc_q31_from_f32((mc_f32_t)raw->phase_a_raw / MC_ADC_FULL_SCALE);
+    raw_b = mc_q31_from_f32((mc_f32_t)raw->phase_b_raw / MC_ADC_FULL_SCALE);
+    raw_c = mc_q31_from_f32((mc_f32_t)raw->phase_c_raw / MC_ADC_FULL_SCALE);
 
     phase_current_abc->a = mc_q31_mul(mc_q31_add_sat(raw_a, -cfg->offset_a), cfg->scale_a);
     phase_current_abc->b = mc_q31_mul(mc_q31_add_sat(raw_b, -cfg->offset_b), cfg->scale_b);

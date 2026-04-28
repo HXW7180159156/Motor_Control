@@ -5,6 +5,7 @@
 
 #include "mc_transform.h"
 
+#include "mc_constants.h"
 #include "mc_math.h"
 
 /**
@@ -20,7 +21,7 @@ void mc_clarke_run(const mc_abc_t *abc, mc_alphabeta_t *alphabeta)
     }
 
     alphabeta->alpha = abc->a;
-    alphabeta->beta = (abc->a + (2.0F * abc->b)) * 0.5773502692F;
+    alphabeta->beta = (abc->a + (2.0F * abc->b)) * MC_CLARKE_BETA_COEFF;
 }
 
 /**
@@ -36,7 +37,7 @@ void mc_clarke_q31_run(const mc_abc_q31_t *abc, mc_alphabeta_q31_t *alphabeta)
     }
 
     alphabeta->alpha = abc->a;
-    alphabeta->beta = mc_q31_from_f32((mc_q31_to_f32(abc->a) + (2.0F * mc_q31_to_f32(abc->b))) * 0.5773502692F);
+    alphabeta->beta = mc_q31_from_f32((mc_q31_to_f32(abc->a) + (2.0F * mc_q31_to_f32(abc->b))) * MC_CLARKE_BETA_COEFF);
 }
 
 /**

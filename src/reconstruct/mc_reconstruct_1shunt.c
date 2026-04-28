@@ -1,29 +1,8 @@
 /** @file mc_reconstruct_1shunt.c @brief 1-shunt phase current reconstruction */
 
+#include "mc_constants.h"
+#include "mc_math.h"
 #include "mc_reconstruct_1shunt.h"
-
-/**
- * @brief Clamp a value to a specified range
- * @param value Value to clamp
- * @param min_value Minimum allowable value
- * @param max_value Maximum allowable value
- * @return Clamped value within [min_value, max_value]
- */
-static mc_f32_t mc_reconstruct_1shunt_clamp(mc_f32_t value, mc_f32_t min_value, mc_f32_t max_value)
-{
-    mc_f32_t result = value;
-
-    if (result < min_value)
-    {
-        result = min_value;
-    }
-    else if (result > max_value)
-    {
-        result = max_value;
-    }
-
-    return result;
-}
 
 /**
  * @brief Finalize single shunt sampling window parameters
@@ -50,18 +29,18 @@ static void mc_reconstruct_1shunt_finalize_sample(mc_1shunt_sample_phase_t phase
         return;
     }
 
-    half_period_s = 0.5F * pwm_period_s;
+    half_period_s = MC_1SHUNT_HALF * pwm_period_s;
     *sample_time = sample_position * pwm_period_s;
 
     if (phase == MC_1SHUNT_SAMPLE_PHASE_TRAILING)
     {
         *half_cycle = MC_1SHUNT_HALF_CYCLE_DOWN;
-        *half_position = mc_reconstruct_1shunt_clamp((sample_position - 0.5F) * 2.0F, 0.0F, 1.0F);
+        *half_position = mc_math_clamp_f32((sample_position - MC_1SHUNT_HALF) * 2.0F, 0.0F, 1.0F);
     }
     else if (phase == MC_1SHUNT_SAMPLE_PHASE_LEADING)
     {
         *half_cycle = MC_1SHUNT_HALF_CYCLE_UP;
-        *half_position = mc_reconstruct_1shunt_clamp(sample_position * 2.0F, 0.0F, 1.0F);
+        *half_position = mc_math_clamp_f32(sample_position * 2.0F, 0.0F, 1.0F);
     }
     else
     {
@@ -157,12 +136,12 @@ void mc_reconstruct_1shunt_plan(const mc_pwm_cmd_t *pwm_cmd,
     {
         meta->sample_count += 1U;
     }
-    meta->compensation_required = (meta->sample_count < 2U) ? MC_TRUE : MC_FALSE;
-    meta->zero_vector_bias_high = (pwm_cmd->duty_a + pwm_cmd->duty_b + pwm_cmd->duty_c) < 1.5F ? MC_TRUE : MC_FALSE;
-    meta->preferred_window = (duty_x >= duty_y) ? 1U : 2U;
-    meta->reorder_required = (meta->sample_count < 2U) ? MC_TRUE : MC_FALSE;
-    timing_guard = cfg->sample_window_margin + ((cfg->deadtime_s + (0.5F * cfg->adc_aperture_s)) / pwm_period_s);
-    margin_half = 0.5F * timing_guard;
+    meta->compensation_required = (meta->sample_count < MC_1SHUNT_MIN_SAMPLE_COUNT) ? MC_TRUE : MC_FALSE;
+    meta->zero_vector_bias_high = (pwm_cmd->duty_a + pwm_cmd->duty_b + pwm_cmd->duty_c) < MC_1SHUNT_ZERO_VECTOR_DUTY_SUM ? MC_TRUE : MC_FALSE;
+    meta->preferred_window = (duty_x >= duty_y) ? MC_1SHUNT_PREFERRED_WINDOW_HIGH : MC_1SHUNT_PREFERRED_WINDOW_LOW;
+    meta->reorder_required = (meta->sample_count < MC_1SHUNT_MIN_SAMPLE_COUNT) ? MC_TRUE : MC_FALSE;
+    timing_guard = cfg->sample_window_margin + ((cfg->deadtime_s + (MC_1SHUNT_HALF * cfg->adc_aperture_s)) / pwm_period_s);
+    margin_half = MC_1SHUNT_HALF * timing_guard;
     duty_low = cfg->min_active_duty + margin_half;
     duty_high = 1.0F - duty_low;
     meta->sample_phase_a = MC_1SHUNT_SAMPLE_PHASE_NONE;
@@ -180,7 +159,7 @@ void mc_reconstruct_1shunt_plan(const mc_pwm_cmd_t *pwm_cmd,
 
     if (duty_x > timing_guard)
     {
-        meta->sample_phase_a = (duty_x >= 0.5F) ? MC_1SHUNT_SAMPLE_PHASE_TRAILING : MC_1SHUNT_SAMPLE_PHASE_LEADING;
+        meta->sample_phase_a = (duty_x >= MC_1SHUNT_MIDPOINT) ? MC_1SHUNT_SAMPLE_PHASE_TRAILING : MC_1SHUNT_SAMPLE_PHASE_LEADING;
         meta->sample_position_a = (meta->sample_phase_a == MC_1SHUNT_SAMPLE_PHASE_LEADING) ?
                                   duty_low :
                                   (duty_x - margin_half);
@@ -188,7 +167,7 @@ void mc_reconstruct_1shunt_plan(const mc_pwm_cmd_t *pwm_cmd,
 
     if (duty_y > timing_guard)
     {
-        meta->sample_phase_b = (duty_y >= 0.5F) ? MC_1SHUNT_SAMPLE_PHASE_TRAILING : MC_1SHUNT_SAMPLE_PHASE_LEADING;
+        meta->sample_phase_b = (duty_y >= MC_1SHUNT_MIDPOINT) ? MC_1SHUNT_SAMPLE_PHASE_TRAILING : MC_1SHUNT_SAMPLE_PHASE_LEADING;
         meta->sample_position_b = (meta->sample_phase_b == MC_1SHUNT_SAMPLE_PHASE_LEADING) ?
                                   duty_low :
                                   (duty_y - margin_half);
@@ -196,25 +175,25 @@ void mc_reconstruct_1shunt_plan(const mc_pwm_cmd_t *pwm_cmd,
 
     if (meta->reorder_required != MC_FALSE)
     {
-        meta->zero_vector_bias_high = (meta->preferred_window == 1U) ? MC_TRUE : MC_FALSE;
-        if (meta->preferred_window == 1U)
+        meta->zero_vector_bias_high = (meta->preferred_window == MC_1SHUNT_PREFERRED_WINDOW_HIGH) ? MC_TRUE : MC_FALSE;
+        if (meta->preferred_window == MC_1SHUNT_PREFERRED_WINDOW_HIGH)
         {
             meta->sample_phase_a = MC_1SHUNT_SAMPLE_PHASE_TRAILING;
             meta->sample_phase_b = MC_1SHUNT_SAMPLE_PHASE_TRAILING;
-            meta->sample_position_a = mc_reconstruct_1shunt_clamp(duty_x - margin_half, duty_low, duty_high);
-            meta->sample_position_b = mc_reconstruct_1shunt_clamp(meta->sample_position_a + timing_guard, duty_low, duty_high);
+            meta->sample_position_a = mc_math_clamp_f32(duty_x - margin_half, duty_low, duty_high);
+            meta->sample_position_b = mc_math_clamp_f32(meta->sample_position_a + timing_guard, duty_low, duty_high);
         }
         else
         {
             meta->sample_phase_a = MC_1SHUNT_SAMPLE_PHASE_LEADING;
             meta->sample_phase_b = MC_1SHUNT_SAMPLE_PHASE_LEADING;
             meta->sample_position_b = duty_low;
-            meta->sample_position_a = mc_reconstruct_1shunt_clamp(meta->sample_position_b + timing_guard, duty_low, duty_high);
+            meta->sample_position_a = mc_math_clamp_f32(meta->sample_position_b + timing_guard, duty_low, duty_high);
         }
     }
 
-    meta->sample_position_a = mc_reconstruct_1shunt_clamp(meta->sample_position_a, 0.0F, 1.0F);
-    meta->sample_position_b = mc_reconstruct_1shunt_clamp(meta->sample_position_b, 0.0F, 1.0F);
+    meta->sample_position_a = mc_math_clamp_f32(meta->sample_position_a, 0.0F, 1.0F);
+    meta->sample_position_b = mc_math_clamp_f32(meta->sample_position_b, 0.0F, 1.0F);
     mc_reconstruct_1shunt_finalize_sample(meta->sample_phase_a,
                                           pwm_period_s,
                                           meta->sample_position_a,

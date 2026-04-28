@@ -1,23 +1,10 @@
 /** @file mc_drive_bldc_sensorless.c @brief BLDC sensorless drive using BEMF zero-crossing detection */
 
+#include "mc_constants.h"
 #include "mc_drive_bldc_sensorless.h"
 #include "mc_control_pi.h"
+#include "mc_math.h"
 #include <math.h>
-
-/**
- * @brief Clamp a value within a specified range
- * @param value Input value to clamp
- * @param min_value Lower bound
- * @param max_value Upper bound
- * @return Clamped value within [min_value, max_value]
- */
-static mc_f32_t mc_bldc_ss_clamp(mc_f32_t value, mc_f32_t min_value, mc_f32_t max_value)
-{
-    mc_f32_t result = value;
-    if (result < min_value) { result = min_value; }
-    else if (result > max_value) { result = max_value; }
-    return result;
-}
 
 /**
  * @brief Reset runtime-only state while preserving configuration
@@ -135,17 +122,19 @@ mc_bldc_sensorless_cfg_t mc_bldc_sensorless_cfg_default(void)
 {
     mc_bldc_sensorless_cfg_t cfg;
 
-    cfg.align_duty = 0.1F;
-    cfg.align_time_s = 0.5F;
-    cfg.ramp_start_freq_hz = 5.0F;
-    cfg.ramp_end_freq_hz = 30.0F;
-    cfg.ramp_time_s = 1.0F;
-    cfg.ramp_start_duty = 0.15F;
-    cfg.ramp_end_duty = 0.4F;
-    cfg.bemf_threshold_v = 1.0F;
-    cfg.advance_angle_deg = 30.0F;
+    cfg.align_duty = MC_BLDC_SS_DEFAULT_ALIGN_DUTY;
+    cfg.align_time_s = MC_BLDC_SS_DEFAULT_ALIGN_TIME_S;
+    cfg.ramp_start_freq_hz = MC_BLDC_SS_DEFAULT_RAMP_START_FREQ_HZ;
+    cfg.ramp_end_freq_hz = MC_BLDC_SS_DEFAULT_RAMP_END_FREQ_HZ;
+    cfg.ramp_time_s = MC_BLDC_SS_DEFAULT_RAMP_TIME_S;
+    cfg.ramp_start_duty = MC_BLDC_SS_DEFAULT_RAMP_START_DUTY;
+    cfg.ramp_end_duty = MC_BLDC_SS_DEFAULT_RAMP_END_DUTY;
+    cfg.bemf_threshold_v = MC_BLDC_SS_DEFAULT_BEMF_THRESHOLD_V;
+    cfg.advance_angle_deg = MC_BLDC_SS_DEFAULT_ADVANCE_ANGLE_DEG;
     cfg.zc_debounce_threshold = 0U;
-    cfg.speed_pi_cfg = (mc_pi_cfg_t){0.1F, 1.0F, -0.5F, 0.5F, 0.0F, 1.0F};
+    cfg.speed_pi_cfg = (mc_pi_cfg_t){MC_BLDC_SS_DEFAULT_SPEED_KP, MC_BLDC_SS_DEFAULT_SPEED_KI,
+        MC_BLDC_SS_DEFAULT_SPEED_INT_MIN, MC_BLDC_SS_DEFAULT_SPEED_INT_MAX,
+        MC_BLDC_SS_DEFAULT_SPEED_OUT_MIN, MC_BLDC_SS_DEFAULT_SPEED_OUT_MAX};
 
     return cfg;
 }
@@ -230,7 +219,7 @@ mc_status_t mc_bldc_sensorless_reset(mc_bldc_sensorless_t *ss)
 uint8_t mc_bldc_sensorless_floating_phase(uint8_t step)
 {
     static const uint8_t floating_phase_map[6] = {2U, 1U, 0U, 2U, 1U, 0U};
-    if (step > 5U) { return 0xFF; }
+    if (step > 5U) { return MC_BLDC_SS_INVALID_STEP; }
     return floating_phase_map[step];
 }
 
@@ -240,7 +229,7 @@ uint8_t mc_bldc_sensorless_floating_phase(uint8_t step)
  */
 static void mc_bldc_ss_advance_step(mc_bldc_sensorless_t *ss)
 {
-    ss->commutation_step = (ss->commutation_step + 1U) % 6U;
+    ss->commutation_step = (ss->commutation_step + 1U) % MC_HALL_STEPS;
     ss->step_timer_s = 0.0F;
     ss->zc_detected = MC_FALSE;
     ss->zc_timer_s = 0.0F;
@@ -258,7 +247,7 @@ static void mc_bldc_ss_advance_step(mc_bldc_sensorless_t *ss)
 static mc_bool_t mc_bldc_ss_detect_zc(mc_bldc_sensorless_t *ss,
     mc_f32_t floating_phase_voltage_v, mc_f32_t bus_voltage_v)
 {
-    mc_f32_t threshold = bus_voltage_v * 0.5F;
+    mc_f32_t threshold = bus_voltage_v * MC_1SHUNT_HALF;
     mc_f32_t diff = floating_phase_voltage_v - threshold;
     mc_f32_t abs_diff = fabsf(diff);
     mc_bool_t crossing;
@@ -311,8 +300,8 @@ mc_status_t mc_bldc_sensorless_run(mc_bldc_sensorless_t *ss,
     mc_f32_t dt_s, mc_f32_t floating_phase_voltage_v, mc_f32_t bus_voltage_v,
     mc_pwm_cmd_t *pwm_cmd)
 {
-    mc_f32_t duty;
-    mc_f32_t freq;
+    mc_f32_t duty = 0.0F;
+    mc_f32_t freq = 0.0F;
 
     if ((ss == NULL) || (pwm_cmd == NULL))
     {
@@ -353,9 +342,6 @@ mc_status_t mc_bldc_sensorless_run(mc_bldc_sensorless_t *ss,
                 duty = ss->cfg.ramp_start_duty +
                     (ss->cfg.ramp_end_duty - ss->cfg.ramp_start_duty) * ramp_progress;
             }
-            freq = mc_bldc_ss_clamp(freq, ss->cfg.ramp_start_freq_hz, ss->cfg.ramp_end_freq_hz);
-            duty = mc_bldc_ss_clamp(duty, ss->cfg.ramp_start_duty, ss->cfg.ramp_end_duty);
-            duty = mc_bldc_ss_clamp(duty, ss->cfg.ramp_start_duty, ss->cfg.ramp_end_duty);
 
             ss->elec_freq_hz = freq;
             ss->duty_cmd = duty;
@@ -367,7 +353,7 @@ mc_status_t mc_bldc_sensorless_run(mc_bldc_sensorless_t *ss,
 
             ss->step_timer_s += dt_s;
 
-            if (ss->step_timer_s >= (1.0F / (freq * 6.0F)))
+            if (ss->step_timer_s >= (1.0F / (freq * (mc_f32_t)MC_HALL_STEPS)))
             {
                 mc_bldc_ss_advance_step(ss);
             }
@@ -375,7 +361,7 @@ mc_status_t mc_bldc_sensorless_run(mc_bldc_sensorless_t *ss,
             if (freq >= ss->cfg.ramp_end_freq_hz)
             {
                 ss->phase = MC_BLDC_SENSORLESS_RUN;
-                ss->commutation_delay_s = ss->last_zc_period_s * (ss->cfg.advance_angle_deg / 60.0F);
+                ss->commutation_delay_s = ss->last_zc_period_s * (ss->cfg.advance_angle_deg / MC_DEG_PER_COMM_STEP);
             }
             break;
 
@@ -390,10 +376,12 @@ mc_status_t mc_bldc_sensorless_run(mc_bldc_sensorless_t *ss,
                     ss->zc_timer_s = 0.0F;
                     ss->last_zc_period_s = ss->step_timer_s;
                     ss->last_zc_voltage_v = floating_phase_voltage_v;
-                    ss->commutation_delay_s = ss->last_zc_period_s * (ss->cfg.advance_angle_deg / 60.0F);
+                    ss->commutation_delay_s = ss->last_zc_period_s * (ss->cfg.advance_angle_deg / MC_DEG_PER_COMM_STEP);
                     ss->elec_freq_hz = 1.0F / ss->last_zc_period_s;
-                    ss->mech_speed_rpm = ss->elec_freq_hz * 60.0F;
-                }
+                    ss->mech_speed_rpm = ss->elec_freq_hz * MC_SEC_PER_MIN;
+            }
+            freq = mc_math_clamp_f32(freq, ss->cfg.ramp_start_freq_hz, ss->cfg.ramp_end_freq_hz);
+            duty = mc_math_clamp_f32(duty, ss->cfg.ramp_start_duty, ss->cfg.ramp_end_duty);
             }
             else
             {
@@ -401,7 +389,7 @@ mc_status_t mc_bldc_sensorless_run(mc_bldc_sensorless_t *ss,
             }
 
             if ((ss->zc_detected && (ss->zc_timer_s >= ss->commutation_delay_s)) ||
-                (!ss->zc_detected && (ss->step_timer_s >= ss->last_zc_period_s * 1.5F)))
+                (!ss->zc_detected && (ss->step_timer_s >= ss->last_zc_period_s * MC_BLDC_SS_FALLBACK_ZC_TIMEOUT_RATIO)))
             {
                 mc_bldc_ss_advance_step(ss);
             }
@@ -452,5 +440,5 @@ void mc_bldc_sensorless_speed_step(mc_bldc_sensorless_t *ss, mc_f32_t speed_ref_
 
     error = speed_ref_rpm - ss->mech_speed_rpm;
     duty_pi = mc_pi_run(&ss->speed_pi, error, dt_s);
-    ss->duty_cmd = mc_bldc_ss_clamp(duty_pi, ss->cfg.ramp_start_duty, 0.95F);
+    ss->duty_cmd = mc_math_clamp_f32(duty_pi, ss->cfg.ramp_start_duty, MC_BLDC_SS_DUTY_MAX_CLAMP);
 }

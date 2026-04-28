@@ -3,6 +3,7 @@
  * @brief Motor control API implementation
  */
 #include "mc_api.h"
+#include "mc_constants.h"
 #include "mc_math.h"
 #include "mc_version.h"
 
@@ -23,7 +24,7 @@ static void mc_api_identify_optimize_1shunt_pwm(const mc_1shunt_meta_t *meta,
         return;
     }
 
-    shift = (meta->reorder_required != MC_FALSE) ? 0.04F : 0.02F;
+    shift = (meta->reorder_required != MC_FALSE) ? MC_1SHUNT_SHIFT_REORDER : MC_1SHUNT_SHIFT_NORMAL;
     pwm_cmd->common_mode_shift = (meta->zero_vector_bias_high != MC_FALSE) ? shift : -shift;
 
     if (meta->reorder_required == MC_FALSE)
@@ -172,39 +173,39 @@ static mc_status_t mc_api_init_estimators(mc_instance_t *inst)
         mc_sensorless_cfg_t sensorless_cfg = inst->cfg.sensor.sensorless_cfg;
 
         sensorless_cfg.rs_ohm = inst->cfg.motor.rs_ohm;
-        sensorless_cfg.ls_h = 0.5F * (inst->cfg.motor.ld_h + inst->cfg.motor.lq_h);
+        sensorless_cfg.ls_h = MC_1SHUNT_HALF * (inst->cfg.motor.ld_h + inst->cfg.motor.lq_h);
         sensorless_cfg.pole_pairs = (mc_f32_t)inst->cfg.motor.pole_pairs;
         if (sensorless_cfg.bemf_filter_alpha <= 0.0F)
         {
-            sensorless_cfg.bemf_filter_alpha = 0.2F;
+            sensorless_cfg.bemf_filter_alpha = MC_SENSORLESS_DEFAULT_BEMF_ALPHA;
         }
         if (sensorless_cfg.min_bemf <= 0.0F)
         {
-            sensorless_cfg.min_bemf = 0.01F;
+            sensorless_cfg.min_bemf = MC_SENSORLESS_DEFAULT_MIN_BEMF;
         }
         if (sensorless_cfg.pll_kp <= 0.0F)
         {
-            sensorless_cfg.pll_kp = 400.0F;
+            sensorless_cfg.pll_kp = MC_SENSORLESS_DEFAULT_PLL_KP;
         }
         if (sensorless_cfg.pll_ki <= 0.0F)
         {
-            sensorless_cfg.pll_ki = 20000.0F;
+            sensorless_cfg.pll_ki = MC_SENSORLESS_DEFAULT_PLL_KI;
         }
         if (sensorless_cfg.lock_bemf <= 0.0F)
         {
-            sensorless_cfg.lock_bemf = sensorless_cfg.min_bemf * 2.0F;
+            sensorless_cfg.lock_bemf = sensorless_cfg.min_bemf * MC_SENSORLESS_DEFAULT_LOCK_BEMF_RATIO;
         }
         if (sensorless_cfg.startup_speed_rad_s <= 0.0F)
         {
-            sensorless_cfg.startup_speed_rad_s = 80.0F;
+            sensorless_cfg.startup_speed_rad_s = MC_SENSORLESS_DEFAULT_STARTUP_SPEED_RAD_S;
         }
         if (sensorless_cfg.startup_accel_rad_s2 <= 0.0F)
         {
-            sensorless_cfg.startup_accel_rad_s2 = 4000.0F;
+            sensorless_cfg.startup_accel_rad_s2 = MC_SENSORLESS_DEFAULT_STARTUP_ACCEL_RAD_S2;
         }
         if (sensorless_cfg.open_loop_voltage_max <= 0.0F)
         {
-            sensorless_cfg.open_loop_voltage_max = 0.15F * inst->cfg.foc.voltage_limit;
+            sensorless_cfg.open_loop_voltage_max = MC_SENSORLESS_DEFAULT_OL_VOLTAGE_RATIO * inst->cfg.foc.voltage_limit;
         }
         if (sensorless_cfg.open_loop_voltage_start < 0.0F)
         {
@@ -345,7 +346,7 @@ static void mc_api_apply_identified_params(mc_instance_t *inst,
     if (inst->cfg.sensor.primary_mode == MC_MODE_PMSM_FOC_SENSORLESS)
     {
         inst->sensorless.cfg.rs_ohm = inst->cfg.motor.rs_ohm;
-        inst->sensorless.cfg.ls_h = 0.5F * (inst->cfg.motor.ld_h + inst->cfg.motor.lq_h);
+            inst->sensorless.cfg.ls_h = MC_1SHUNT_HALF * (inst->cfg.motor.ld_h + inst->cfg.motor.lq_h);
     }
 }
 
@@ -487,7 +488,7 @@ static mc_f32_t mc_api_get_elec_speed_rad_s(const mc_instance_t *inst)
         return 0.0F;
     }
 
-    return mech_speed_rpm * 0.1047197551F * pole_pairs;
+    return mech_speed_rpm * MC_RPM_TO_RAD_S * pole_pairs;
 }
 
 /**

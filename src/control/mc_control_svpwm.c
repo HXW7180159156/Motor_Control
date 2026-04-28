@@ -3,34 +3,12 @@
  * @brief Space Vector Pulse Width Modulation (SVPWM) implementation
  */
 
+#include "mc_constants.h"
 #include "mc_control_svpwm.h"
 
 #include "mc_math.h"
 
 #include <math.h>
-
-/**
- * @brief Clamp a value between minimum and maximum bounds
- * @param value Input value to clamp
- * @param min_value Lower bound
- * @param max_value Upper bound
- * @return Clamped value within [min_value, max_value]
- */
-static mc_f32_t mc_svpwm_clamp(mc_f32_t value, mc_f32_t min_value, mc_f32_t max_value)
-{
-    mc_f32_t result = value;
-
-    if (result < min_value)
-    {
-        result = min_value;
-    }
-    else if (result > max_value)
-    {
-        result = max_value;
-    }
-
-    return result;
-}
 
 /**
  * @brief Detect the sector of the voltage vector in alpha-beta frame
@@ -109,8 +87,8 @@ void mc_svpwm_run(const mc_alphabeta_t *voltage_ab, const mc_svpwm_cfg_t *cfg, m
     mc_svpwm_limit_vector(cfg, &limited_voltage_ab);
 
     va = limited_voltage_ab.alpha;
-    vb = (-0.5F * limited_voltage_ab.alpha) + (0.8660254038F * limited_voltage_ab.beta);
-    vc = (-0.5F * limited_voltage_ab.alpha) - (0.8660254038F * limited_voltage_ab.beta);
+    vb = (-MC_1SHUNT_HALF * limited_voltage_ab.alpha) + (MC_SQRT3_OVER_2 * limited_voltage_ab.beta);
+    vc = (-MC_1SHUNT_HALF * limited_voltage_ab.alpha) - (MC_SQRT3_OVER_2 * limited_voltage_ab.beta);
 
     vmax = va;
     if (vb > vmax)
@@ -132,12 +110,12 @@ void mc_svpwm_run(const mc_alphabeta_t *voltage_ab, const mc_svpwm_cfg_t *cfg, m
         vmin = vc;
     }
 
-    v_offset = 0.5F * (vmax + vmin);
+    v_offset = MC_1SHUNT_HALF * (vmax + vmin);
     common_mode_shift = pwm_cmd->common_mode_shift;
 
-    pwm_cmd->duty_a = mc_svpwm_clamp((va - v_offset) + 0.5F + common_mode_shift, cfg->duty_min, cfg->duty_max);
-    pwm_cmd->duty_b = mc_svpwm_clamp((vb - v_offset) + 0.5F + common_mode_shift, cfg->duty_min, cfg->duty_max);
-    pwm_cmd->duty_c = mc_svpwm_clamp((vc - v_offset) + 0.5F + common_mode_shift, cfg->duty_min, cfg->duty_max);
+    pwm_cmd->duty_a = mc_math_clamp_f32((va - v_offset) + MC_1SHUNT_HALF + common_mode_shift, cfg->duty_min, cfg->duty_max);
+    pwm_cmd->duty_b = mc_math_clamp_f32((vb - v_offset) + MC_1SHUNT_HALF + common_mode_shift, cfg->duty_min, cfg->duty_max);
+    pwm_cmd->duty_c = mc_math_clamp_f32((vc - v_offset) + MC_1SHUNT_HALF + common_mode_shift, cfg->duty_min, cfg->duty_max);
     pwm_cmd->phase_mode_a = MC_PWM_PHASE_PWM;
     pwm_cmd->phase_mode_b = MC_PWM_PHASE_PWM;
     pwm_cmd->phase_mode_c = MC_PWM_PHASE_PWM;
