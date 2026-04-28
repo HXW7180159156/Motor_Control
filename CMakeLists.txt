@@ -138,6 +138,22 @@ if(MC_BUILD_TESTS)
     target_link_libraries(test_mc_vector PRIVATE motor_control)
 
     add_test(NAME test_mc_vector COMMAND test_mc_vector)
+
+    add_executable(test_mc_bench
+        tests/bench/bm_main.c
+        tests/bench/bm_mc_fast_step.c
+        tests/bench/bm_mc_transforms.c
+        tests/bench/bm_mc_pi.c
+        tests/support/unity/unity.c)
+
+    target_include_directories(test_mc_bench
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/support/unity)
+
+    target_link_libraries(test_mc_bench PRIVATE motor_control)
+
+    add_test(NAME test_mc_bench COMMAND test_mc_bench)
 endif()
 
 if(MC_RUN_CPPCHECK)

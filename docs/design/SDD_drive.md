@@ -2,72 +2,276 @@
 
 ## 中文
 
-### BLDC Hall 驱动
-- 文件：`src/drive/mc_drive_bldc.c` / `include/mc_drive_bldc.h`
-- 六步换相，基于 Hall 输入驱动 PWM 输出
-- 数据结构：`mc_bldc_hall_t` 保存状态（换相表索引、死区计时器等）
+### 架构
 
-### BLDC Sensorless 驱动
-- 文件：`src/drive/mc_drive_bldc_sensorless.c` / `include/mc_drive_bldc_sensorless.h`
-- 启动相位：`IDLE -> ALIGN -> RAMP_OPEN -> RUN`
-- 顶层 `mc_start()` 会通过公开 API 调 `mc_bldc_sensorless_start()` 进入 `ALIGN`；`mc_stop()` / `mc_bldc_sensorless_reset()` 当前保留配置，仅清运行态
-- 闭环阶段基于悬空相反电势过零检测换相：
-  - `bemf_threshold_v` 作为最小有效过零幅值门限
-  - `zc_debounce_threshold` 可要求连续样本确认过零
-  - `advance_angle_deg` 按配置的提前角换算为过零后的延时换相
-- `mc_medium_step()` 可在 `RUN` 阶段调用 `mc_bldc_sensorless_speed_step()` 调整 `duty_cmd`
+驱动层是算法库最上层（仅次于 API 层），负责将控制算法、传感器估计、电流重构串联为完整的控制回路。
+
+### BLDC Hall 六步换相
+
+```
+BLDC_HALL_RUN(drive, hall_code, duty_cmd, pwm):
+    clamped = CLAMP(duty_cmd, drive.cfg.duty_min, drive.cfg.duty_max)
+    根据 hall_code 映射扇区：
+      hall=1→扇区1(A=H,B=L,C=OFF), hall=5→扇区2(A=H,C=L,B=OFF),
+      hall=4→扇区3(B=H,A=OFF,C=L), hall=6→扇区4(B=H,A=L,C=OFF),
+      hall=2→扇区5(C=H,A=L,B=OFF), hall=3→扇区6(C=H,A=OFF,B=L)
+    drive.last_hall_code = hall_code
+    drive.last_pwm_cmd = pwm
+```
+
+### BLDC Sensorless 启动与运行
+
+**状态机**:
+
+```
+IDLE ──(mc_start)──→ ALIGN ──(timer≥align_time)──→ RAMP_OPEN
+                                                          │
+                                                    (freq≥ramp_end)
+                                                          ↓
+                        RUN ←──(zc_detect ── advance_angle_delay)──┤
+```
+
+**状态详解**:
+
+| 状态 | 行为 | 换相来源 |
+|---|---|---|
+| `IDLE` | PWM 全零输出 | — |
+| `ALIGN` | 固定第一扇区、固定 `align_duty`，持续 `align_time_s` | 定时 |
+| `RAMP_OPEN` | 频率从 `ramp_start_freq` 斜坡到 `ramp_end_freq`，占空比同步斜坡 | 定时 (1/(freq×6)) |
+| `RUN` | BEMF 过零检测驱动换相，支持去抖 | BEMF 过零 + advance_angle |
+
+**BEMF 过零检测**:
+
+```
+DETECT_ZC(ss, floating_voltage, bus_voltage):
+    threshold = bus_voltage * 0.5
+    diff = floating_voltage - threshold
+
+    if |diff| < bemf_threshold_v: return FALSE  // 欠幅 → 无效
+
+    根据换相步奇偶确定过零方向：
+      偶数步: crossing = (diff > 0)
+      奇数步: crossing = (diff < 0)
+
+    if zc_debounce_threshold == 0: return crossing  // 无去抖
+
+    // 连续样本去抖
+    if crossing: zc_debounce_cnt++, 达到阈值后返回 TRUE
+    else: zc_debounce_cnt = 0, 返回 FALSE
+```
+
+**速度 PI 调节 (`mc_bldc_sensorless_speed_step`)**:
+
+```
+SPEED_STEP(ss, speed_ref, dt):
+    if phase != RUN: reset PI, return
+    error = speed_ref - ss.mech_speed_rpm
+    duty_pi = PI_RUN(error, dt)
+    ss.duty_cmd = CLAMP(duty_pi, ramp_start_duty, 0.95)
+```
 
 ### PMSM FOC 驱动
-- 文件：`src/drive/mc_drive_pmsm.c` / `include/mc_drive_pmsm.h`
-- 支持 1-shunt / 2-shunt / 3-shunt 电流采样
-- FOC 状态：`mc_pmsm_foc_t` 包含 PI 状态、1-shunt 元数据、弱磁积分值
-- `1-shunt` 模式下，驱动层负责：
-  - 基于 `mc_1shunt_meta_t` 生成 PWM 共模偏移与相位重排
-  - 在窗口不足时使用简化 PMSM dq 模型做预测补偿
-  - 通过 `mc_1shunt_comp_status_t` 暴露 None / Basic / High Modulation / Field Weakening 模式
 
-### 电流采样配置
-- `mc_current_sense_cfg_t`：三合一配置，通过 `type` + union 选择
-- 3-shunt / 2-shunt 配置保存在 `mc_3shunt_cfg_t` / `mc_2shunt_cfg_t`
-- 1-shunt 配置 `mc_1shunt_cfg_t`：含 offset / scale / min_active_duty / sample_window_margin / pwm_period_s / deadtime_s / adc_aperture_s
+**FOC 快速电流环** (`mc_pmsm_foc_run`):
 
-### ADC 触发计划
-- 1-shunt：由 `mc_pmsm_foc_run` 按 1-shunt 规划结果生成
-- 2-shunt / 3-shunt：默认一个触发，位置在 PWM 中点（position=0.5, event=PWM_DOWN）
-- ADC trigger plan 通过 `mc_fast_output_t.adc_trigger_plan` 暴露给板级适配层
+```
+PMSM_FOC_RUN(foc, in, out):
+    // 1. 电流重构
+    RECONSTRUCT_CURRENT(foc, in, &out.i_abc, &out.comp_status)
+
+    // 2. Clarke + Park 变换
+    CLARKE(out.i_abc, &out.i_ab)
+    PARK(out.i_ab, sinθ, cosθ, &out.i_dq)
+
+    // 3. 弱磁 id 修正
+    if fw_enable:
+        v_mag = sqrt(vd² + vq²)  // 上一周期限幅后电压
+        fw_threshold = voltage_limit * fw_activation_ratio
+        fw_error = fw_threshold - v_mag
+        id_fw_adjustment += fw_ki * fw_error * dt  // PI 积分
+        CLAMP(id_fw_adjustment, fw_min_id, 0)
+        fw_output = fw_kp * fw_error + id_fw_adjustment
+        CLAMP(fw_output, fw_min_id, 0)
+        effective_id_ref = CLAMP(id_ref + fw_output, fw_min_id, ∞)
+
+    // 4. 电流 PI
+    out.v_dq.d = PI_RUN(id_pi, effective_id_ref - out.i_dq.d, dt)
+    out.v_dq.q = PI_RUN(iq_pi, iq_ref - out.i_dq.q, dt)
+
+    // 5. 电压限幅
+    LIMIT_VOLTAGE(foc, &out.v_dq)
+
+    // 6. InvPark
+    IPARK(out.v_dq, sinθ, cosθ, &out.v_ab)
+
+    // 7. 母线电压归一化
+    NORMALIZE_VOLTAGE(foc, in, &out.v_ab)
+
+    // 8. 1-shunt PWM 优化 + SVPWM
+    if current_cfg.type == 1SHUNT:
+        PLAN_1SHUNT_FROM_VOLTAGE(foc, &out.v_ab, &out.pwm_cmd)
+        OPTIMIZE_1SHUNT_PWM(foc, &out.pwm_cmd)     // pass 1: 电压预览
+    SVPWM_RUN(&out.v_ab, &svpwm_cfg, &out.pwm_cmd)
+    if current_cfg.type == 1SHUNT:
+        OPTIMIZE_1SHUNT_PWM(foc, &out.pwm_cmd)     // pass 2: 最终占空比
+
+    // 9. ADC 触发计划
+    PLAN_ADC_TRIGGER(foc, &shunt1_meta, &out.trigger_plan)
+
+    // 10. 状态保存
+    foc.i_dq = out.i_dq;  foc.v_dq = out.v_dq;  foc.i_abc_last = out.i_abc
+```
+
+**1-shunt PWM 优化** (`mc_pmsm_optimize_1shunt_pwm`):
+
+```
+OPTIMIZE_1SHUNT_PWM(foc, pwm):
+    if current_cfg.type != 1SHUNT: return
+
+    // 共模偏置
+    shift = reorder_required ? 0.04 : 0.02
+    pwm.common_mode_shift = zero_vector_bias_high ? shift : -shift
+
+    // 相位重排
+    if reorder_required:
+        将活跃相设置为 PWM 模式
+        两路不活跃相设置为 HIGH（高零矢量）或 LOW（低零矢量）
+```
 
 ## English
 
-### BLDC Hall Drive
-- Files: `src/drive/mc_drive_bldc.c` / `include/mc_drive_bldc.h`
-- Six-step commutation driven by Hall sensor input
-- Data structure: `mc_bldc_hall_t` holds state (commutation table index, dead-time counter, etc.)
+### Architecture
 
-### BLDC Sensorless Drive
-- Files: `src/drive/mc_drive_bldc_sensorless.c` / `include/mc_drive_bldc_sensorless.h`
-- Startup phases: `IDLE -> ALIGN -> RAMP_OPEN -> RUN`
-- Top-level `mc_start()` enters `ALIGN` through the public `mc_bldc_sensorless_start()` path; `mc_stop()` / `mc_bldc_sensorless_reset()` currently preserve configuration while clearing runtime state
-- Closed-loop commutation is based on floating-phase back-EMF zero-cross detection:
-  - `bemf_threshold_v` is the minimum valid crossing amplitude
-  - `zc_debounce_threshold` can require consecutive samples before accepting a crossing
-  - `advance_angle_deg` is converted into the post-zero-cross commutation delay
-- `mc_medium_step()` can call `mc_bldc_sensorless_speed_step()` in `RUN` to adjust `duty_cmd`
+The drive layer is the uppermost layer (just below API), responsible for orchestrating control algorithms, sensor estimates, and current reconstruction into a complete control loop.
+
+### BLDC Hall Six-Step Commutation
+
+```
+BLDC_HALL_RUN(drive, hall_code, duty_cmd, pwm):
+    clamped = CLAMP(duty_cmd, drive.cfg.duty_min, drive.cfg.duty_max)
+    Map hall_code to sector:
+      hall=1→sector1(A=H,B=L,C=OFF), hall=5→sector2(A=H,C=L,B=OFF),
+      hall=4→sector3(B=H,A=OFF,C=L), hall=6→sector4(B=H,A=L,C=OFF),
+      hall=2→sector5(C=H,A=L,B=OFF), hall=3→sector6(C=H,A=OFF,B=L)
+    drive.last_hall_code = hall_code
+    drive.last_pwm_cmd = pwm
+```
+
+### BLDC Sensorless Startup & Run
+
+**State Machine**:
+
+```
+IDLE ──(mc_start)──→ ALIGN ──(timer≥align_time)──→ RAMP_OPEN
+                                                          │
+                                                    (freq≥ramp_end)
+                                                          ↓
+                        RUN ←──(zc_detect ── advance_angle_delay)──┤
+```
+
+**State Details**:
+
+| State | Behavior | Commutation Source |
+|---|---|---|
+| `IDLE` | Zero PWM output | — |
+| `ALIGN` | Fixed first sector, fixed `align_duty`, for `align_time_s` | Timer |
+| `RAMP_OPEN` | Frequency ramps from `ramp_start_freq` to `ramp_end_freq`, duty follows same ramp | Timer (1/(freq×6)) |
+| `RUN` | BEMF zero-crossing detection triggers commutation with debounce | BEMF ZC + advance_angle |
+
+**BEMF Zero-Crossing Detection**:
+
+```
+DETECT_ZC(ss, floating_voltage, bus_voltage):
+    threshold = bus_voltage * 0.5
+    diff = floating_voltage - threshold
+
+    if |diff| < bemf_threshold_v: return FALSE  // Below threshold → invalid
+
+    Determine crossing direction by commutation step parity:
+      even step: crossing = (diff > 0)
+      odd step:  crossing = (diff < 0)
+
+    if zc_debounce_threshold == 0: return crossing
+
+    // Consecutive-sample debounce
+    if crossing: zc_debounce_cnt++, return TRUE when threshold reached
+    else: zc_debounce_cnt = 0, return FALSE
+```
+
+**Speed PI Regulation (`mc_bldc_sensorless_speed_step`)**:
+
+```
+SPEED_STEP(ss, speed_ref, dt):
+    if phase != RUN: reset PI, return
+    error = speed_ref - ss.mech_speed_rpm
+    duty_pi = PI_RUN(error, dt)
+    ss.duty_cmd = CLAMP(duty_pi, ramp_start_duty, 0.95)
+```
 
 ### PMSM FOC Drive
-- Files: `src/drive/mc_drive_pmsm.c` / `include/mc_drive_pmsm.h`
-- Supports 1-shunt / 2-shunt / 3-shunt current sensing
-- FOC state: `mc_pmsm_foc_t` contains PI states, 1-shunt metadata, FW integral value
-- In `1-shunt` mode, the drive layer is responsible for:
-  - generating PWM common-mode shift and phase reordering from `mc_1shunt_meta_t`
-  - using a simplified PMSM dq model for predictive compensation when sampling windows are insufficient
-  - exposing None / Basic / High Modulation / Field Weakening through `mc_1shunt_comp_status_t`
 
-### Current Sensing Configuration
-- `mc_current_sense_cfg_t`: unified configuration via `type` + union
-- 3-shunt / 2-shunt config stored in `mc_3shunt_cfg_t` / `mc_2shunt_cfg_t`
-- 1-shunt config `mc_1shunt_cfg_t`: offset / scale / min_active_duty / sample_window_margin / pwm_period_s / deadtime_s / adc_aperture_s
+**FOC Fast Current Loop** (`mc_pmsm_foc_run`):
 
-### ADC Trigger Plan
-- 1-shunt: generated by `mc_pmsm_foc_run` per 1-shunt planning results
-- 2-shunt / 3-shunt: default single trigger at PWM midpoint (position=0.5, event=PWM_DOWN)
-- ADC trigger plan exposed via `mc_fast_output_t.adc_trigger_plan` to board adaptation layer
+```
+PMSM_FOC_RUN(foc, in, out):
+    // 1. Current reconstruction
+    RECONSTRUCT_CURRENT(foc, in, &out.i_abc, &out.comp_status)
+
+    // 2. Clarke + Park
+    CLARKE(out.i_abc, &out.i_ab)
+    PARK(out.i_ab, sinθ, cosθ, &out.i_dq)
+
+    // 3. FW id adjustment
+    if fw_enable:
+        v_mag = sqrt(vd² + vq²)  // Previous cycle limited voltage
+        fw_threshold = voltage_limit * fw_activation_ratio
+        fw_error = fw_threshold - v_mag
+        id_fw_adjustment += fw_ki * fw_error * dt
+        CLAMP(id_fw_adjustment, fw_min_id, 0)
+        fw_output = fw_kp * fw_error + id_fw_adjustment
+        CLAMP(fw_output, fw_min_id, 0)
+        effective_id_ref = CLAMP(id_ref + fw_output, fw_min_id, ∞)
+
+    // 4. Current PI
+    out.v_dq.d = PI_RUN(id_pi, effective_id_ref - out.i_dq.d, dt)
+    out.v_dq.q = PI_RUN(iq_pi, iq_ref - out.i_dq.q, dt)
+
+    // 5. Voltage limit
+    LIMIT_VOLTAGE(foc, &out.v_dq)
+
+    // 6. InvPark
+    IPARK(out.v_dq, sinθ, cosθ, &out.v_ab)
+
+    // 7. Bus voltage normalization
+    NORMALIZE_VOLTAGE(foc, in, &out.v_ab)
+
+    // 8. 1-shunt PWM optimization + SVPWM
+    if current_cfg.type == 1SHUNT:
+        PLAN_1SHUNT_FROM_VOLTAGE(foc, &out.v_ab, &out.pwm_cmd)
+        OPTIMIZE_1SHUNT_PWM(foc, &out.pwm_cmd)     // pass 1: voltage preview
+    SVPWM_RUN(&out.v_ab, &svpwm_cfg, &out.pwm_cmd)
+    if current_cfg.type == 1SHUNT:
+        OPTIMIZE_1SHUNT_PWM(foc, &out.pwm_cmd)     // pass 2: final duties
+
+    // 9. ADC trigger plan
+    PLAN_ADC_TRIGGER(foc, &shunt1_meta, &out.trigger_plan)
+
+    // 10. State save
+    foc.i_dq = out.i_dq;  foc.v_dq = out.v_dq;  foc.i_abc_last = out.i_abc
+```
+
+**1-Shunt PWM Optimization** (`mc_pmsm_optimize_1shunt_pwm`):
+
+```
+OPTIMIZE_1SHUNT_PWM(foc, pwm):
+    if current_cfg.type != 1SHUNT: return
+
+    // Common-mode shift
+    shift = reorder_required ? 0.04 : 0.02
+    pwm.common_mode_shift = zero_vector_bias_high ? shift : -shift
+
+    // Phase reordering
+    if reorder_required:
+        Set active phase to PWM mode
+        Set two inactive phases to HIGH (high zero-vector) or LOW (low zero-vector)
+```
