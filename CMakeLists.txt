@@ -89,6 +89,25 @@ if(MC_BUILD_TESTS)
     target_link_libraries(test_mc_api PRIVATE motor_control)
 
     add_test(NAME test_mc_api COMMAND test_mc_api)
+
+    add_executable(test_mc_integration
+        tests/integration/it_main.c
+        tests/integration/it_mc_pmsm_foc_pipeline.c
+        tests/integration/it_mc_pmsm_sensorless.c
+        tests/integration/it_mc_bldc_hall_pipeline.c
+        tests/integration/it_mc_bldc_sensorless.c
+        tests/integration/it_mc_identify_pipeline.c
+        tests/integration/it_mc_fast_step_scheduling.c
+        tests/support/unity/unity.c)
+
+    target_include_directories(test_mc_integration
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/support/unity)
+
+    target_link_libraries(test_mc_integration PRIVATE motor_control)
+
+    add_test(NAME test_mc_integration COMMAND test_mc_integration)
 endif()
 
 if(MC_RUN_CPPCHECK)
