@@ -108,6 +108,36 @@ if(MC_BUILD_TESTS)
     target_link_libraries(test_mc_integration PRIVATE motor_control)
 
     add_test(NAME test_mc_integration COMMAND test_mc_integration)
+
+    add_executable(test_mc_fault
+        tests/fault/ft_main.c
+        tests/fault/ft_mc_sensor_faults.c
+        tests/fault/ft_mc_reconstruct_faults.c
+        tests/fault/ft_mc_lifecycle_faults.c
+        tests/support/unity/unity.c)
+
+    target_include_directories(test_mc_fault
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/support/unity)
+
+    target_link_libraries(test_mc_fault PRIVATE motor_control)
+
+    add_test(NAME test_mc_fault COMMAND test_mc_fault)
+
+    add_executable(test_mc_vector
+        tests/vector/vt_main.c
+        tests/vector/vt_mc_golden_ref.c
+        tests/support/unity/unity.c)
+
+    target_include_directories(test_mc_vector
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/support/unity)
+
+    target_link_libraries(test_mc_vector PRIVATE motor_control)
+
+    add_test(NAME test_mc_vector COMMAND test_mc_vector)
 endif()
 
 if(MC_RUN_CPPCHECK)

@@ -19,6 +19,23 @@
 
 - Consolidated 5 duplicate `clamp` implementations into single `mc_math_clamp_f32` across all modules
 - Replaced 40+ magic numbers with named constants from `mc_constants.h` across all source files
+- Bilingual docs standardized across SRS, RTM, FMEA, HARA, SAFETY_PLAN, DEVIATION_RECORD
+- Updated Safety Plan to reflect HARA→SG→TSR→HSI lifecycle completion
+
+### Added / 新增 (M3 量产准备)
+
+- `docs/safety/HARA.md`: item definition, 9 hazards, 5 safety goals (up to ASIL D), 10 TSRs, 6 HSI entries
+- `docs/safety/SAFETY_PLAN.md`: rewritten with 10-phase safety development lifecycle status
+- `docs/safety/DEVIATION_RECORD.md`: 6 MISRA deviations + 2 design deviations with justifications
+- Fault injection tests (`tests/fault/`): 4 suites, 10 test cases covering sensor faults, reconstruct faults, and lifecycle faults
+- Vector golden reference tests (`tests/vector/`): 23 test cases validating Clarke/Park/InvPark/SVPWM/PI/Q31 math against known reference values
+- CMake targets: `test_mc_fault`, `test_mc_vector`
+- Total test coverage: 22 unit + 6 integration + 4 fault + 1 vector = 33 test suites, ~105 test cases
+
+### Changed / 修改
+
+- Consolidated 5 duplicate `clamp` implementations into single `mc_math_clamp_f32` across all modules
+- Replaced 40+ magic numbers with named constants from `mc_constants.h` across all source files
 - `mc_platform_compiler.h`: added `MC_INLINE`, `MC_RESTRICT`, `MC_ALIGN`, `MC_UNUSED`, `MC_STATIC_ASSERT` macros for multi-compiler portability
 - BLDC sensorless: added `MC_BLDC_SS_INVALID_STEP` sentinel constant instead of bare `0xFF`
 - Initialized `freq` and `duty` locals in `mc_bldc_sensorless_run` to suppress MSVC C4700
