@@ -399,6 +399,9 @@ mc_status_t mc_bldc_sensorless_run(mc_bldc_sensorless_t *ss,
                 return MC_STATUS_INVALID_ARG;
             }
             break;
+
+        default:
+            break;
     }
 
     ss->last_pwm_cmd = *pwm_cmd;

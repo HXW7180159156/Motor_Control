@@ -505,7 +505,7 @@ static mc_status_t mc_api_update_position(mc_instance_t *inst, const mc_fast_inp
 
     angle_rad = mc_math_wrap_angle_rad(angle_rad);
 
-    if (angle_rad == 0.0F)
+    if (fabsf(angle_rad) < MC_EPSILON_F)
     {
         *sin_theta = 0.0F;
         *cos_theta = 1.0F;

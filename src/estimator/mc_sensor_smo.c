@@ -10,8 +10,6 @@
 #define MC_SMO_PLL_LOCK_SAMPLES (2U)
 #define MC_SMO_PLL_UNLOCK_SAMPLES (2U)
 #define MC_SMO_COUNTER_MAX (255U)
-#define MC_SMO_OPEN_LOOP_HANDOFF_ANGLE_ERR_RAD (0.5F)
-#define MC_SMO_PLL_LOCK_ANGLE_ERR_RAD (0.35F)
 
 /**
  * @brief Sliding mode sign function returning ±k_slide

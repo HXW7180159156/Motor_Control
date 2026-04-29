@@ -125,6 +125,10 @@
 #define MC_SENSORLESS_OPEN_LOOP_HANDOFF_ANGLE_ERR_RAD (0.5F)
 /** @brief PLL lock angle error threshold */
 #define MC_SENSORLESS_PLL_LOCK_ANGLE_ERR_RAD (0.35F)
+/** @brief SMO open-loop handoff angle error threshold */
+#define MC_SMO_OPEN_LOOP_HANDOFF_ANGLE_ERR_RAD (0.5F)
+/** @brief SMO PLL lock angle error threshold */
+#define MC_SMO_PLL_LOCK_ANGLE_ERR_RAD (0.35F)
 
 /* ------------------------------------------------------------------ */
 /*  Identify / parameter estimation constants                           */
