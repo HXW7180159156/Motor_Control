@@ -32,6 +32,9 @@ add_library(motor_control STATIC
     src/estimator/mc_sensor_resolver.c
     src/estimator/mc_sensor_sensorless.c
     src/estimator/mc_sensor_smo.c
+    src/debug/mc_debug_map.c
+    src/debug/mc_debug_fm.c
+    src/debug/mc_debug_transp.c
     src/drive/mc_drive_bldc.c
     src/drive/mc_drive_bldc_sensorless.c
     src/drive/mc_drive_pmsm.c)
@@ -44,7 +47,8 @@ target_include_directories(motor_control
 
 target_compile_definitions(motor_control
     PUBLIC
-        MC_CFG_BUILD_M1=1)
+        MC_CFG_BUILD_M1=1
+        MC_CFG_ENABLE_DEBUG=1)
 
 if(MSVC)
     target_compile_options(motor_control PRIVATE /W4)
@@ -83,6 +87,9 @@ if(MC_BUILD_TESTS)
         tests/unit/test_mc_identify.c
         tests/unit/test_mc_auto_tune.c
         tests/unit/test_mc_dtc.c
+        tests/unit/test_mc_debug_map.c
+        tests/unit/test_mc_debug_fm.c
+        tests/unit/test_mc_debug_transp.c
         tests/support/unity/unity.c)
 
     target_include_directories(test_mc_api

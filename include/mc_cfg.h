@@ -25,5 +25,15 @@
 #define MC_CFG_ENABLE_RESOLVER        (1U)
 /** @brief Enable sensorless (observer-based) operation */
 #define MC_CFG_ENABLE_SENSORLESS      (1U)
+/** @brief Enable debug/calibration subsystem (FreeMASTER, UART/CAN/LIN) */
+#define MC_CFG_ENABLE_DEBUG           (1U)
+/** @brief Enable FreeMASTER protocol engine (requires MC_CFG_ENABLE_DEBUG) */
+#define MC_CFG_ENABLE_DEBUG_FM        (1U)
+/** @brief Enable UART transport for debug */
+#define MC_CFG_ENABLE_DEBUG_UART      (1U)
+/** @brief Enable CAN transport for debug */
+#define MC_CFG_ENABLE_DEBUG_CAN       (0U)
+/** @brief Enable LIN transport for debug */
+#define MC_CFG_ENABLE_DEBUG_LIN       (0U)
 
 #endif /* MC_CFG_H */
