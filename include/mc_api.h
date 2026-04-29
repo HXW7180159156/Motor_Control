@@ -226,7 +226,10 @@ typedef struct
     mc_pmsm_foc_output_t foc_last_output; /**< Most recent FOC cycle output */
     mc_identify_t identify;               /**< Motor parameter identification state */
 #if MC_CFG_ENABLE_DEBUG
-    mc_debug_t debug;                     /**< Debug/calibration subsystem state */
+    mc_debug_t debug;                     /**< Debug/calibration subsystem state.
+                                               Scope streaming, recorder capture,
+                                               variable map, and transport layer.
+                                               Compiled only when MC_CFG_ENABLE_DEBUG==1. */
 #endif
 } mc_instance_t;
 

@@ -1,4 +1,12 @@
-/** @file mc_debug_fm.c @brief FreeMASTER protocol engine */
+/**
+ * @file mc_debug_fm.c
+ * @brief FreeMASTER protocol engine for the debug/calibration subsystem
+ *
+ * Implements a 7-command subset of the FreeMASTER binary protocol:
+ * GET_INFO, READ_VARS, WRITE_VAR, SCOPE_START, SCOPE_STOP, REC_START,
+ * and RESPONSE. Handles command parsing, variable access, and scope-timer
+ * driven periodic data streaming.
+ */
 
 #include "mc_debug.h"
 #include "mc_types.h"
@@ -11,6 +19,17 @@ extern void mc_debug_map_collect(uint32_t active_mask, uint32_t timestamp_us,
 extern mc_bool_t mc_debug_transp_push_byte(mc_debug_transp_t *t, uint8_t byte);
 extern void mc_debug_transp_reset_rx(mc_debug_transp_t *t);
 
+/**
+ * @brief Send a FreeMASTER response frame
+ * @param dbg Debug subsystem state (in/out, uses transp.tx_flush).
+ *   Range: non-NULL pointer to writable mc_debug_t storage.
+ * @param cmd Response command byte.
+ *   Range: typically MC_DEBUG_FM_CMD_RESPONSE.
+ * @param payload Pointer to response payload data.
+ *   Range: readable buffer of pay_len bytes, or NULL if pay_len == 0.
+ * @param pay_len Length of payload data.
+ *   Range: [0, MC_DEBUG_BUF_SIZE - 5].
+ */
 static void fm_send_response(mc_debug_t *dbg, uint8_t cmd, const uint8_t *payload, uint16_t pay_len)
 {
     uint8_t hdr[MC_DEBUG_HEADER_SIZE + 1U];
@@ -32,6 +51,23 @@ static void fm_send_response(mc_debug_t *dbg, uint8_t cmd, const uint8_t *payloa
     }
 }
 
+/**
+ * @brief Initialise the FreeMASTER protocol engine
+ *
+ * Zeroes the debug state and registers the platform TX callback for
+ * outbound frame transmission.
+ *
+ * @param[out] dbg Pointer to debug subsystem state to initialise.
+ *   Range: non-NULL pointer to writable mc_debug_t storage.
+ * @param[in] tx_flush Platform callback for transmitting data.
+ *   Range: non-NULL function pointer, or NULL (outbound sending is silently skipped).
+ * @return None.
+ *   Range: not applicable.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different dbg object.
+ */
 void mc_debug_fm_init(mc_debug_t *dbg, void (*tx_flush)(const uint8_t *data, uint16_t len))
 {
     if (dbg == NULL) { return; }
@@ -40,6 +76,27 @@ void mc_debug_fm_init(mc_debug_t *dbg, void (*tx_flush)(const uint8_t *data, uin
     dbg->transp.initialized = MC_TRUE;
 }
 
+/**
+ * @brief Feed raw bytes into the protocol engine's receive buffer
+ *
+ * Pushes each byte through the transport layer's frame boundary detector.
+ * When a complete frame is detected, it is available for mc_debug_fm_poll()
+ * on the next call.
+ *
+ * @param[in,out] dbg Debug subsystem state (uses transp.rx state machine).
+ *   Range: non-NULL pointer to writable mc_debug_t storage.
+ * @param[in] frame Pointer to raw received bytes.
+ *   Range: non-NULL pointer to readable buffer of len bytes.
+ * @param[in] len Number of bytes to feed.
+ *   Range: [1, MC_DEBUG_BUF_SIZE].
+ * @return None.
+ *   Range: not applicable.
+ * @par Sync/Async
+ *   Synchronous. Designed to be called from ISR (UART RX interrupt).
+ * @par Reentrancy
+ *   Not reentrant for concurrent writes to the same dbg from different ISR contexts.
+ *   Reentrant when each concurrent call uses a different dbg object.
+ */
 void mc_debug_fm_feed_rx(mc_debug_t *dbg, const uint8_t *frame, uint16_t len)
 {
     uint16_t i;
@@ -51,6 +108,30 @@ void mc_debug_fm_feed_rx(mc_debug_t *dbg, const uint8_t *frame, uint16_t len)
     }
 }
 
+/**
+ * @brief Poll the FreeMASTER protocol engine
+ *
+ * Called once per mc_fast_step() cycle. Processes one complete received
+ * command frame (if available), then sends scope/recorder frames if
+ * active. Non-blocking: returns immediately if no frame is ready.
+ *
+ * Handles all 7 FreeMASTER commands:
+ * - GET_INFO: responds with variable count and name/flag list
+ * - READ_VARS: responds with current values of selected variables
+ * - WRITE_VAR: writes a new value to a calibratable variable
+ * - SCOPE_START/STOP: enables/disables periodic scope streaming
+ * - REC_START: starts high-speed single-shot recorder capture
+ *
+ * @param[in,out] dbg Debug subsystem state.
+ *   Range: non-NULL pointer to writable mc_debug_t storage.
+ * @return None.
+ *   Range: not applicable.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Not reentrant for concurrent writes to the same dbg.
+ *   Reentrant when each concurrent call uses a different dbg object.
+ */
 void mc_debug_fm_poll(mc_debug_t *dbg)
 {
     uint8_t cmd;

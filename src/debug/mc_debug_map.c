@@ -1,4 +1,11 @@
-/** @file mc_debug_map.c @brief Variable map manager for debug subsystem */
+/**
+ * @file mc_debug_map.c
+ * @brief Variable map manager for the debug/calibration subsystem
+ *
+ * Provides compile-time variable registration via MC_DEBUG_VAR_RO/RW macros,
+ * runtime address resolution via mc_debug_set_instance(), and frame-based
+ * data collection via mc_debug_map_collect().
+ */
 
 #include "mc_debug.h"
 #include "mc_api.h"
@@ -10,26 +17,71 @@
 static const mc_debug_var_t *g_var_table;
 static uint8_t g_var_count;
 
+/**
+ * @brief Set the active variable table for subsequent collection calls
+ * @param table Pointer to variable registration table.
+ *   Range: non-NULL pointer to readable table of mc_debug_var_t, or NULL to clear.
+ * @param count Number of entries in the table.
+ *   Range: [0, 255]; entries beyond this count are ignored during collection.
+ * @return None.
+ *   Range: not applicable.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses a different table pointer.
+ */
 void mc_debug_map_set_table(const mc_debug_var_t *table, uint8_t count)
 {
     g_var_table = table;
     g_var_count = count;
 }
 
+/**
+ * @brief Get the currently active variable table
+ * @return Pointer to the active table.
+ *   Range: non-NULL pointer when a table has been set; NULL when no table is active.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant for concurrent read-only calls.
+ */
 const mc_debug_var_t *mc_debug_get_var_table(void)
 {
     return g_var_table;
 }
 
+/**
+ * @brief Get the number of entries in the active variable table
+ * @return Table entry count.
+ *   Range: [0, MC_DEBUG_INST_TABLE_SIZE].
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant for concurrent read-only calls.
+ */
 uint8_t mc_debug_get_var_count(void)
 {
     return g_var_count;
 }
 
-/* === Real variable table built at runtime === */
+/* === Runtime variable table from mc_instance_t === */
 
 static mc_debug_var_t g_inst_var_table[MC_DEBUG_INST_TABLE_SIZE];
 
+/**
+ * @brief Build a runtime variable table from mc_instance_t fields
+ *
+ * Called once at the end of mc_init(). Populates the global instance
+ * variable table with pointers into the motor control instance, enabling
+ * FreeMASTER to read and calibrate live control variables.
+ *
+ * @note This function must be called after mc_init() has fully populated
+ *       the instance structure. Calling before init produces a null table.
+ *
+ * @param inst Pointer to the motor control instance.
+ *   Range: non-NULL pointer to initialised mc_instance_t storage, or NULL
+ *          (NULL sets an empty table and returns silently).
+ */
 void mc_debug_set_instance(void *inst)
 {
     mc_instance_t *p = (mc_instance_t *)inst;
@@ -64,8 +116,29 @@ void mc_debug_set_instance(void *inst)
     mc_debug_map_set_table(g_inst_var_table, i);
 }
 
-/* === Collect: packs selected var slots into frame buffer === */
-
+/**
+ * @brief Collect selected variable values into a frame buffer
+ *
+ * Iterates the active variable table and, for each slot whose bit is set
+ * in active_mask, copies the variable type, size, and current value into
+ * the output buffer. Handles NULL table and NULL variable addresses safely.
+ *
+ * @param[in] active_mask Bitmask selecting which variable slots to collect.
+ *   Range: any uint32_t; bit i maps to table slot i. Unused bits are ignored.
+ * @param[in] timestamp_us Microsecond timestamp to prepend to the frame.
+ *   Range: any uint32_t representing a µs-resolution timestamp.
+ * @param[out] buf Output buffer for the collected frame.
+ *   Range: non-NULL pointer to writable buffer of at least MC_DEBUG_BUF_SIZE bytes.
+ * @param[out] buf_len Number of bytes actually written to buf.
+ *   Range: non-NULL pointer to writable uint16_t; receives the frame byte count.
+ * @return None.
+ *   Range: not applicable.
+ * @par Sync/Async
+ *   Synchronous.
+ * @par Reentrancy
+ *   Reentrant when each concurrent call uses different buf and buf_len storage.
+ *   Not reentrant for concurrent writes to the active variable table.
+ */
 void mc_debug_map_collect(uint32_t active_mask, uint32_t timestamp_us,
                            uint8_t *buf, uint16_t *buf_len)
 {
