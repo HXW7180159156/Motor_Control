@@ -209,6 +209,12 @@ void test_mc_dtc_disabled_does_not_affect_voltage(void);
 void test_mc_dtc_enabled_produces_nonzero_compensation(void);
 void test_mc_dtc_higher_deadtime_produces_larger_compensation(void);
 void test_mc_dtc_config_propagated_to_foc_cfg(void);
+void test_mc_debug_map_collect_one_var(void);
+void test_mc_debug_map_collect_two_vars(void);
+void test_mc_debug_map_inactive_mask_skips(void);
+void test_mc_debug_map_slot_out_of_range_collects_zero(void);
+void test_mc_debug_fm_placeholder(void);
+void test_mc_debug_transp_placeholder(void);
 
 void test_mc_diag_1shunt_comp_mode_name_none(void);
 void test_mc_diag_1shunt_comp_mode_name_predict_basic(void);
@@ -1457,6 +1463,12 @@ int main(void)
     RUN_TEST(test_mc_dtc_enabled_produces_nonzero_compensation);
     RUN_TEST(test_mc_dtc_higher_deadtime_produces_larger_compensation);
     RUN_TEST(test_mc_dtc_config_propagated_to_foc_cfg);
+    RUN_TEST(test_mc_debug_map_collect_one_var);
+    RUN_TEST(test_mc_debug_map_collect_two_vars);
+    RUN_TEST(test_mc_debug_map_inactive_mask_skips);
+    RUN_TEST(test_mc_debug_map_slot_out_of_range_collects_zero);
+    RUN_TEST(test_mc_debug_fm_placeholder);
+    RUN_TEST(test_mc_debug_transp_placeholder);
     RUN_TEST(test_mc_diag_1shunt_comp_mode_name_returns_readable_strings);
     RUN_TEST(test_mc_diag_1shunt_comp_mode_name_none);
     RUN_TEST(test_mc_diag_1shunt_comp_mode_name_predict_basic);

@@ -47,8 +47,7 @@ target_include_directories(motor_control
 
 target_compile_definitions(motor_control
     PUBLIC
-        MC_CFG_BUILD_M1=1
-        MC_CFG_ENABLE_DEBUG=1)
+        MC_CFG_BUILD_M1=1)
 
 if(MSVC)
     target_compile_options(motor_control PRIVATE /W4)
