@@ -221,6 +221,8 @@ void test_mc_debug_fm_get_info_responds(void);
 void test_mc_debug_fm_unknown_cmd_ignored(void);
 void test_mc_debug_fm_write_var_updates_value(void);
 void test_mc_debug_fm_scope_starts_streaming(void);
+void test_mc_debug_e2e_init_populates_var_table(void);
+void test_mc_debug_e2e_fast_step_poll_does_not_crash(void);
 
 void test_mc_diag_1shunt_comp_mode_name_none(void);
 void test_mc_diag_1shunt_comp_mode_name_predict_basic(void);
@@ -1481,6 +1483,8 @@ int main(void)
     RUN_TEST(test_mc_debug_fm_unknown_cmd_ignored);
     RUN_TEST(test_mc_debug_fm_write_var_updates_value);
     RUN_TEST(test_mc_debug_fm_scope_starts_streaming);
+    RUN_TEST(test_mc_debug_e2e_init_populates_var_table);
+    RUN_TEST(test_mc_debug_e2e_fast_step_poll_does_not_crash);
     RUN_TEST(test_mc_diag_1shunt_comp_mode_name_returns_readable_strings);
     RUN_TEST(test_mc_diag_1shunt_comp_mode_name_none);
     RUN_TEST(test_mc_diag_1shunt_comp_mode_name_predict_basic);

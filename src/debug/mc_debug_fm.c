@@ -125,6 +125,11 @@ void mc_debug_fm_poll(mc_debug_t *dbg)
             fm_send_response(dbg, MC_DEBUG_FM_CMD_RESPONSE, (const uint8_t *)"OK", 2U);
             break;
 
+        case MC_DEBUG_FM_CMD_SCOPE_STOP:
+            dbg->scope_active = MC_FALSE;
+            fm_send_response(dbg, MC_DEBUG_FM_CMD_RESPONSE, (const uint8_t *)"OK", 2U);
+            break;
+
         case MC_DEBUG_FM_CMD_REC_START:
             dbg->recorder_active = MC_TRUE;
             dbg->recorder_total_frames = 100U;
