@@ -115,3 +115,39 @@
 - Cortex-M general timer + regular ADC external trigger
 - C2000 ePWM + ADC SOC A/B
 - R5F/R52 GPT/EPWM + ADC queue
+
+### Debug Transport Integration / 调试传输层集成
+
+调试子系统通过分离的平台钩子 `mc_debug_port_t` 支持三个物理传输层。
+
+**文件**: `include/mc_port_debug.h`
+
+**钩子结构**:
+
+| Hook | 方向 | 职责 |
+|---|---|---|
+| `uart_tx(data, len)` | MCU→PC | 发送数据块到 UART |
+| `uart_rx_available()` | PC→MCU | 查询 UART RX FIFO 中的可用字节数 |
+| `uart_rx_read()` | PC→MCU | 从 UART RX FIFO 读取一个字节 |
+| `can_tx(id, data, len)` | MCU→PC | 发送 CAN 帧（每帧 ≤ 8 字节；多帧由传输层拼接） |
+| `lin_tx(data, len)` | MCU→PC | 发送 LIN 帧（帧格式同 UART，服从 LIN Schedule Table） |
+
+**帧边界策略**:
+
+| 传输层 | 帧边界 | 最大帧长 | 典型速率 |
+|---|---|---|---|
+| UART | 魔术字节 `0xDA 0x1A` + 2 字节 little-endian 长度 | 256 字节 | 115200–3M baud |
+| CAN | 标准帧 8 字节/帧；首帧传输 total_len；多帧拼接 | 256 字节 | 1 Mbps |
+| LIN | 同 UART（本质是串行）；服从 LIN Schedule Table | 256 字节 | 20 kbps |
+
+**板级集成步骤**:
+
+- 板级 `uart_rx_available()` 和 `uart_rx_read()` 在 UART RX ISR 中调用 `mc_debug_fm_feed_rx()`
+- 板级 `uart_tx()` 由传输层的 `tx_flush` 回调调用，可直接使用 DMA 或中断
+- 所有钩子均可为空—相应的传输层被静默禁用
+
+**参考适配对象**:
+
+- Cortex-M UART/USART + DMA
+- Cortex-M CAN/FDCAN 外设（标准帧）用于调试
+- Cortex-M UART 用于 LIN（通过 LIN 收发器）

@@ -44,6 +44,20 @@
 
 - None
 
+### Added / 新增 (Debug/Calibration)
+
+- `src/debug/mc_debug_map.c`: compile-time variable registration with runtime address resolution; 23 motor control variables exposed to host via pointer-deref collection in FreeMASTER frames
+- `src/debug/mc_debug_fm.c`: FreeMASTER protocol engine implementing 7 command handlers (GET_INFO, READ_VARS, WRITE_VAR, SCOPE_START/STOP, REC_START, RESPONSE); scope timer for periodic auto-streaming
+- `src/debug/mc_debug_transp.c`: transport abstraction layer with magic-byte frame boundary detection (0xDA 0x1A + 2-byte little-endian length), buffered TX with callback flush, ISR-safe RX state machine
+- `include/mc_debug.h`: public types (`mc_debug_var_t`, `mc_debug_transp_t`, `mc_debug_t`), FreeMASTER command constants, `MC_DEBUG_VAR_RO/RW` registration macros, `MC_DEBUG_TYPE_ID` ctype resolver
+- `include/mc_port_debug.h`: platform debug hooks (`uart_tx`, `can_tx`, `lin_tx`, `uart_rx_available`, `uart_rx_read`)
+- Compile-time configuration macros: `MC_CFG_ENABLE_DEBUG`, `MC_CFG_ENABLE_DEBUG_FM`, `MC_CFG_ENABLE_DEBUG_UART/CAN/LIN` (in `mc_cfg.h`)
+- Debug subsystem auto-polls via `mc_fast_step()` — integrated into `mc_instance_t.debug` field, zero intrusion when `MC_CFG_ENABLE_DEBUG=0`
+- 23 real variables exposed: id_ref, iq_ref, speed_ref_rpm, v_d, v_q, i_d, i_q, duty_a/b/c, active_fault, active_warn, id_kp/ki, iq_kp/ki, speed_kp/ki, fw_enable, fw_min_id, voltage_limit, iq_limit, dtc_enable
+- 14 unit test cases: variable map (4), transport (4), protocol engine (4), end-to-end (2)
+- Full Doxygen coverage on all 6 new source/header files following existing `mc_control_pi.h` convention
+
 ### Known / 已知
 
 - Initial M1 repository skeleton.
+- Debug subsystem: FreeMASTER connection not yet validated on real hardware; variable table currently supports PMSM FOC path only (BLDC variables for future expansion).

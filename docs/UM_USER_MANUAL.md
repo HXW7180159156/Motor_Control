@@ -19,6 +19,7 @@ Motor Control Library 是一个面向汽车嵌入式 MCU 的可移植 C99 电机
 | Current Sense | 1-shunt / 2-shunt / 3-shunt 电流检测与重构，1-shunt 含预测补偿 |
 | Auto-Tune | 从辨识参数自动计算电流环和速度环 PI 增益 |
 | DTC | 逆变器死区时间补偿 |
+| Debug | FreeMASTER 协议调试/标定，UART/CAN/LIN 实时变量波形+参数在线修改 |
 | Dual Numeric | float32 全库覆盖 + Q31 定点路径 |
 | Safety | ISO 26262 友好流程，MISRA C:2012 基线，完整 HARA→SG→TSR→HSI 证据链 |
 | Platform | ARM Cortex-M0+/M4F/M7/M33/R5F/R52，GCC/IAR/Keil/GHS 工具链 |
@@ -747,7 +748,143 @@ cmake --build build --target cppcheck
 
 ---
 
-## 10. Compliance / 合规说明
+## 10. Debug & Calibration / 调试与标定
+
+### 10.1 Overview / 概述
+
+调试子系统通过 FreeMASTER 二进制协议和 UART/CAN/LIN 物理层，支持实时波形观察（Scope 模式）、在线参数标定（WRITE_VAR）和高速数据记录（Recorder 模式）。编译时可配置，禁用时零开销。
+
+### 10.2 Compile-Time Macros / 编译期宏
+
+| Macro | Default | Description |
+|---|---|---|
+| `MC_CFG_ENABLE_DEBUG` | 1U | 总开关；=0 时全部调试代码不编译 |
+| `MC_CFG_ENABLE_DEBUG_FM` | 1U | FreeMASTER 协议引擎 |
+| `MC_CFG_ENABLE_DEBUG_UART` | 1U | UART 传输层 |
+| `MC_CFG_ENABLE_DEBUG_CAN` | 0U | CAN 传输层 |
+| `MC_CFG_ENABLE_DEBUG_LIN` | 0U | LIN 传输层 |
+
+### 10.3 Platform Hooks / 平台钩子
+
+```c
+typedef struct {
+    void (*uart_tx)(const uint8_t *data, uint16_t len);
+    void (*can_tx)(uint32_t id, const uint8_t *data, uint8_t len);
+    void (*lin_tx)(const uint8_t *data, uint16_t len);
+    uint16_t (*uart_rx_available)(void);
+    uint8_t  (*uart_rx_read)(void);
+} mc_debug_port_t;
+```
+
+每个钩子可选（NULL 检查通过时静默跳过）。UART TX + RX 是最小化 FreeMASTER 通信所需的两个钩子。
+
+### 10.4 Public Types / 公共类型
+
+#### `mc_debug_var_t` — 变量注册条目
+
+```c
+typedef struct {
+    const char *name;       // 变量名（ASCIIZ，握手时发送给主机）
+    void       *addr;       // 变量在 mc_instance_t 中的内存地址
+    uint8_t     type;       // 类型码：MC_DEBUG_VAR_TYPE_FLOAT32/INT16/UINT16/...
+    uint8_t     size_bytes; // 大小：1 / 2 / 4 字节
+    uint8_t     flags;      // 能力：可读(0x01) / 可写标定(0x02) / 仅Recorder(0x04)
+} mc_debug_var_t;
+```
+
+#### `mc_debug_transp_t` — 传输状态
+
+```c
+typedef struct {
+    mc_debug_transp_type_t type;             // UART / CAN / LIN / NONE
+    mc_bool_t initialized;                   // 已初始化
+    uint8_t  rx_buf[MC_DEBUG_BUF_SIZE];      // 接收缓冲区
+    uint16_t rx_len;                         // 已接收字节数
+    uint8_t  tx_buf[MC_DEBUG_BUF_SIZE];      // 发送缓冲区
+    uint16_t tx_len;                         // 排队字节数
+    void   (*tx_flush)(const uint8_t *, uint16_t); // TX 回调
+} mc_debug_transp_t;
+```
+
+**接收帧格式**：`MAGIC0(0xDA) MAGIC1(0x1A) LEN_LO LEN_HI [payload LEN-4 bytes]`
+
+#### `mc_debug_t` — 调试运行时状态
+
+```c
+typedef struct {
+    mc_bool_t  scope_active;         // Scope 流激活
+    uint32_t   scope_period_us;      // Scope 帧间隔 [µs]
+    mc_bool_t  recorder_active;      // Recorder 激活
+    uint32_t   active_var_mask;      // 主机选择的变量位掩码
+    mc_debug_transp_t transp;        // 传输层状态
+} mc_debug_t;
+```
+
+存储在 `mc_instance_t.debug` 字段中（`#if MC_CFG_ENABLE_DEBUG` 守卫）。
+
+### 10.5 Variable Registration / 变量注册
+
+库内置 23 个已暴露变量：
+
+| Name | Type | R/W | Description |
+|---|---|---|---|
+| `id_ref` | float32 | RW | d 轴电流参考 [A] |
+| `iq_ref` | float32 | RW | q 轴电流参考 [A] |
+| `speed_ref_rpm` | float32 | RW | 速度参考 [RPM] |
+| `v_d` | float32 | RO | d 轴输出电压 [V] |
+| `v_q` | float32 | RO | q 轴输出电压 [V] |
+| `i_d` | float32 | RO | d 轴测量电流 [A] |
+| `i_q` | float32 | RO | q 轴测量电流 [A] |
+| `duty_a` / `duty_b` / `duty_c` | float32 | RO | 三相 PWM 占空比 [0-1] |
+| `active_fault` | uint32 | RO | 当前有效故障代码 |
+| `active_warn` | uint32 | RO | 当前有效警告代码 |
+| `id_kp` / `id_ki` | float32 | RW | d 轴电流 PI 增益 |
+| `iq_kp` / `iq_ki` | float32 | RW | q 轴电流 PI 增益 |
+| `speed_kp` / `speed_ki` | float32 | RW | 速度环 PI 增益 |
+| `fw_enable` | uint8 | RW | 弱磁使能标志 |
+| `fw_min_id` | float32 | RW | 弱磁最小 Id [A] |
+| `voltage_limit` | float32 | RW | 电压限制 [V] |
+| `iq_limit` | float32 | RW | q 轴电流限制 [A] |
+| `dtc_enable` | uint8 | RW | 死区补偿使能标志 |
+
+**可写**（RW）变量支持在线标定——主机通过 WRITE_VAR 命令修改后立即生效。
+
+### 10.6 FreeMASTER Commands / FreeMASTER 命令
+
+| Command | Code | Direction | Purpose |
+|---|---|---|---|
+| `GET_INFO` | 0x01 | Host→MCU | 握手：协议版本、变量名列表 |
+| `READ_VARS` | 0x03 | Host→MCU | 读取指定变量当前值 |
+| `WRITE_VAR` | 0x04 | Host→MCU | 写单个可标定变量值 |
+| `SCOPE_START` | 0x10 | Host→MCU | 启动周期性 Scope 流式推送 |
+| `SCOPE_STOP` | 0x11 | Host→MCU | 停止 Scope 流式推送 |
+| `REC_START` | 0x20 | Host→MCU | 启动高速 Recorder 单次抓取 |
+| `RESPONSE` | 0x80 | MCU→Host | 通用响应帧（含数据负载） |
+
+### 10.7 Data Frame Format / 数据帧格式
+
+```
+| Byte 0-3:  Timestamp_us  (uint32 LE)
+| Byte 4:    Var count     (uint8, 1..16)
+| For each variable:
+|   Byte N:   Var index    (uint8, 0..22)
+|   Byte N+1: Var type     (uint8, type code)
+|   Byte N+2: Var size     (uint8, 1/2/4)
+|   Byte N+3+: Var value   (little-endian, sized bytes)
+```
+
+8 个 float32 变量 + 头部 ≈ 61 字节/帧。4 kHz 速率 ≈ 244 KB/s，UART 1 Mbaud 可处理。
+
+### 10.8 Usage with FreeMASTER / FreeMASTER 使用
+
+1. 配置：`MC_CFG_ENABLE_DEBUG=1`，注册 UART TX/RX 平台钩子
+2. 连接：FreeMASTER 通过 UART 波特率连接
+3. 握手：FreeMASTER 发送 GET_INFO，MCU 返回变量名列表
+4. 操作：使用 FreeMASTER Scope 可视化实时波形，使用 Variable Watch 在线修改 PI 增益
+
+---
+
+## 11. Compliance / 合规说明
 
 | Standard | Status | Reference |
 |---|---|---|
