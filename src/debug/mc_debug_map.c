@@ -27,6 +27,11 @@ uint8_t mc_debug_get_var_count(void)
     return g_var_count;
 }
 
+void mc_debug_set_instance(void *inst)
+{
+    (void)inst;
+}
+
 void mc_debug_map_collect(uint32_t active_mask, uint32_t timestamp_us,
                            uint8_t *buf, uint16_t *buf_len)
 {

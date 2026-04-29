@@ -23,6 +23,9 @@
 #include "mc_sensor_resolver.h"
 #include "mc_sensor_sensorless.h"
 #include "mc_sensor_smo.h"
+#if MC_CFG_ENABLE_DEBUG
+#include "mc_debug.h"
+#endif
 #include "mc_status.h"
 #include "mc_types.h"
 
@@ -222,6 +225,9 @@ typedef struct
     mc_smo_state_t smo;                   /**< SMO sub-instance state */
     mc_pmsm_foc_output_t foc_last_output; /**< Most recent FOC cycle output */
     mc_identify_t identify;               /**< Motor parameter identification state */
+#if MC_CFG_ENABLE_DEBUG
+    mc_debug_t debug;                     /**< Debug/calibration subsystem state */
+#endif
 } mc_instance_t;
 
 /**

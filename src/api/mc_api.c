@@ -773,6 +773,10 @@ mc_status_t mc_init(mc_instance_t *inst, const mc_system_cfg_t *cfg)
     }
     *inst = next_inst;
 
+#if MC_CFG_ENABLE_DEBUG
+    mc_debug_set_instance(inst);
+#endif
+
     return MC_STATUS_OK;
 }
 
@@ -1329,6 +1333,10 @@ mc_status_t mc_fast_step(mc_instance_t *inst, const mc_fast_input_t *in, mc_fast
         out->adc_trigger_plan = (mc_adc_trigger_plan_t){0};
         out->current_comp_status = (mc_1shunt_comp_status_t){0};
     }
+
+#if MC_CFG_ENABLE_DEBUG
+    mc_debug_fm_poll(&inst->debug);
+#endif
 
     return MC_STATUS_OK;
 }
