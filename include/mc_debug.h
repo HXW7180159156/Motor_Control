@@ -21,6 +21,13 @@
 #define MC_DEBUG_HEADER_SIZE         (4U)
 #define MC_DEBUG_MAX_VARS_PER_FRAME  (16U)
 
+#define MC_DEBUG_FM_CMD_GET_INFO     (0x01U)
+#define MC_DEBUG_FM_CMD_READ_VARS    (0x03U)
+#define MC_DEBUG_FM_CMD_WRITE_VAR    (0x04U)
+#define MC_DEBUG_FM_CMD_SCOPE_START  (0x10U)
+#define MC_DEBUG_FM_CMD_REC_START    (0x20U)
+#define MC_DEBUG_FM_CMD_RESPONSE     (0x80U)
+
 #ifndef MC_DEBUG_BUF_SIZE
 #define MC_DEBUG_BUF_SIZE            (1024U)
 #endif
